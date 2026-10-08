@@ -29,11 +29,13 @@ import com.shilapi.xcertplay.host.R
 import com.shilapi.xcertplay.hud.ClusterTurnGuidance
 
 /**
- * Shows CarPlay's instrument-cluster stream on a BYD cluster projection display.
+ * Shows CarPlay's instrument-cluster stream on a supported presentation display.
  *
  * BYD exposes the cluster's projection area as public presentation displays owned by
  * com.byd.containerservice (DiLink 5) or com.xdja.containerservice (DiLink 4). The
  * cluster only shows this display while its projection mode is on, which DiPlay cannot switch.
+ * Arcfox HS7013A exposes a separate 1920x720 display. Its transparent window stays empty until
+ * stream 111 starts; the vehicle's map/lyrics mode arbitration still needs an on-car check.
  */
 internal class ClusterMapPresentation(
     context: Context,
@@ -53,24 +55,29 @@ internal class ClusterMapPresentation(
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val size = sizeOf(display)
+        val arcfox = ArcfoxClusterDisplay.matches(
+            android.os.Build.FINGERPRINT, display.name, size.x, size.y, display.displayId,
+        )
         val adaptive = DiLink51ClusterLayout.supported()
         val plan = if (adaptive) DiLink51ClusterLayout.plan(size.x, size.y, theme) else null
         val dark = DiLink51ClusterLayout.dark(context, theme)
         val backdrop = if (dark) Color.rgb(15, 22, 30) else Color.rgb(207, 218, 229)
         val root = FrameLayout(context).apply {
-            setBackgroundColor(if (plan == null) Color.rgb(233, 238, 246) else if (plan.fullMap) backdrop else Color.TRANSPARENT)
+            setBackgroundColor(if (arcfox) Color.TRANSPARENT else if (plan == null) Color.rgb(233, 238, 246) else if (plan.fullMap) backdrop else Color.TRANSPARENT)
         }
-        if (plan != null) {
+        if (plan != null || arcfox) {
             window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             window?.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         }
+        if (arcfox) window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
         val videoParams = if (plan == null) FrameLayout.LayoutParams(-1, -1) else
             FrameLayout.LayoutParams(plan.width, plan.height, Gravity.TOP or Gravity.LEFT).apply {
                 leftMargin = plan.left; topMargin = plan.top
             }
-        if (plan != null) {
+        if (plan != null || arcfox) {
             val textureView = TextureView(context)
             fun transform() {
+                if (plan == null) return
                 textureView.setTransform(Matrix().apply {
                     setScale(DiLink51ClusterLayout.STREAM_WIDTH.toFloat() / plan.width,
                         DiLink51ClusterLayout.STREAM_HEIGHT.toFloat() / plan.height)
@@ -79,7 +86,10 @@ internal class ClusterMapPresentation(
             }
             textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
-                    texture.setDefaultBufferSize(DiLink51ClusterLayout.STREAM_WIDTH, DiLink51ClusterLayout.STREAM_HEIGHT)
+                    texture.setDefaultBufferSize(
+                        if (arcfox) ArcfoxClusterDisplay.WIDTH else DiLink51ClusterLayout.STREAM_WIDTH,
+                        if (arcfox) ArcfoxClusterDisplay.HEIGHT else DiLink51ClusterLayout.STREAM_HEIGHT,
+                    )
                     transform()
                     outputSurface = Surface(texture).also(onSurface)
                 }
@@ -94,8 +104,8 @@ internal class ClusterMapPresentation(
             }
             root.addView(textureView, videoParams)
             videoView = textureView
-            if (plan.fullMap) root.addView(InstrumentContrastView(context, plan, backdrop), FrameLayout.LayoutParams(-1, -1))
-            Log.i(TAG, "layout=$theme viewport=$plan source=${plan.sourceLeft},${plan.sourceTop} dark=$dark")
+            if (plan?.fullMap == true) root.addView(InstrumentContrastView(context, plan, backdrop), FrameLayout.LayoutParams(-1, -1))
+            Log.i(TAG, "layout=$theme viewport=$plan arcfox=$arcfox dark=$dark")
         } else {
             // Preserve the original PR renderer for DiLink 5 and unverified firmware.
             val surfaceView = SurfaceView(context)
@@ -120,14 +130,14 @@ internal class ClusterMapPresentation(
             root.addView(surfaceView, videoParams)
             videoView = surfaceView
         }
-        waitingLabel = TextView(context).apply {
+        if (!arcfox) waitingLabel = TextView(context).apply {
             text = context.getString(R.string.cluster_waiting_for_map)
             setTextColor(if (plan != null && dark) Color.WHITE else Color.DKGRAY)
             if (plan == null) setBackgroundColor(Color.rgb(233, 238, 246))
             textSize = 26f
             gravity = Gravity.CENTER
         }
-        root.addView(waitingLabel, FrameLayout.LayoutParams(videoParams))
+        waitingLabel?.let { root.addView(it, FrameLayout.LayoutParams(videoParams)) }
         turnCardView = ClusterTurnCardView(context).apply { visibility = View.GONE }
         root.addView(turnCardView, FrameLayout.LayoutParams(-1, -1))
         // Start with the placeholder visible; SurfaceView would otherwise cover the light
@@ -154,7 +164,11 @@ internal class ClusterMapPresentation(
         val label = waitingLabel
         video?.animate()?.cancel()
         label?.animate()?.cancel()
-        if (video == null || label == null) return
+        if (label == null) {
+            video?.alpha = if (active) 1f else 0f
+            return
+        }
+        if (video == null) return
         label.visibility = View.VISIBLE
         // Animate from the current opacity so a stream reversal does not jump or restart.
         if (video !is SurfaceView) video.animate().alpha(if (active) 1f else 0f).setDuration(300).start()
@@ -199,6 +213,12 @@ internal class ClusterMapPresentation(
                 displays.map { it.name }, android.os.Build.FINGERPRINT, theme,
             )
             if (name == null) {
+                displays.firstOrNull { display ->
+                    val size = sizeOf(display)
+                    ArcfoxClusterDisplay.matches(android.os.Build.FINGERPRINT, display.name,
+                        size.x, size.y, display.displayId)
+                }?.let { return it }
+
                 // Never replace a missing 5.1 side layer with a full-screen display.
                 if (DiLink51ClusterLayout.supported()) return null
                 return displays.firstOrNull { display ->

@@ -316,6 +316,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private var safeAreaEditorActive = false
     private var externalActivityInProgress = false
     private var sink: AndroidMediaSink? = null
+    private var arcfoxHardKeyReceiver: android.content.BroadcastReceiver? = null
     private var controller: CarPlayController? = null
     private val videoSurfaceOwner = CarPlayVideoSurfaceOwner<Surface>(
         detach = { surface ->
@@ -797,6 +798,10 @@ class CarPlayHostActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        arcfoxHardKeyReceiver = com.shilapi.xcertplay.orchestration.ArcfoxHardKeys.register(this) {
+            hasWindowFocus() && com.shilapi.xcertplay.hud.BydCarPlayCall.current() == null &&
+                controller?.requestSiri() == true
+        }
         isActivityStarted = true
         logThemeState(ThemeModeDiagnostics.Source.START, resources.configuration)
         mainHandler.removeCallbacks(pollConfiguration)
@@ -1144,6 +1149,12 @@ class CarPlayHostActivity : ComponentActivity() {
                         AirPlayPersistence.loadClusterSafeAreaRect(this),
                     ).also { MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels }
                 }
+                if (ArcfoxClusterDisplay.matches(android.os.Build.FINGERPRINT, display.name,
+                        size.x, size.y, display.displayId)) {
+                    return ArcfoxClusterDisplay.streamConfig(AirPlayPersistence.loadClusterContent(this)).also {
+                        MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels
+                    }
+                }
                 val requestedScale = AirPlayPersistence.loadClusterMapScalePercent(this)
                 val smallWindow = smallWindowActive()
                 requestedSmallWindowForStream = smallWindow
@@ -1277,6 +1288,8 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        arcfoxHardKeyReceiver?.let { runCatching { unregisterReceiver(it) } }
+        arcfoxHardKeyReceiver = null
         closePicturePanel()
         // The controller, USB/iAP2 link, and VPN attachment intentionally outlive the UI.
         isActivityStarted = false

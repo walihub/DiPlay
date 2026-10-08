@@ -131,6 +131,7 @@ object BydCarPlayCall {
 
     fun attach(appContext: Context) {
         context = appContext.applicationContext
+        ArcfoxPhoneSync.attach(appContext)
     }
 
     /**
@@ -151,6 +152,7 @@ object BydCarPlayCall {
             if (!state.accept(frame)) return
             state.current()
         }
+        ArcfoxPhoneSync.onCard(card)
         Log.i(TAG, "CarPlay call ${card?.phase ?: "ended"}")
         val app = context ?: return
         if (BydOutputSettings.carPlayCalls(app)) writer.execute { apply(app, card); if (card == null) arm(app) }
@@ -169,6 +171,7 @@ object BydCarPlayCall {
 
     /** The session ended: forget the calls and end the one DiPlay showed. */
     fun end() {
+        ArcfoxPhoneSync.end()
         sessionActive = false
         synchronized(state) { state.clear() }
         val app = context ?: return

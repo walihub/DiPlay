@@ -1711,7 +1711,10 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 DiLink4ClusterDisplay.matches(clusterDisplay.name, clusterSize.x, clusterSize.y))
             val clusterMapEnabled = AirPlayPersistence.loadClusterMapEnabled(this)
             reconnectingToggle(card, getString(R.string.carplay_map_on_instrument_cluster_experimental),
-                if (clusterDisplay != null || adbCluster) getString(R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c)
+                if (clusterDisplay != null && clusterSize != null && ArcfoxClusterDisplay.matches(
+                        android.os.Build.FINGERPRINT, clusterDisplay.name, clusterSize.x, clusterSize.y, clusterDisplay.displayId))
+                    getString(R.string.arcfox_cluster_map_description)
+                else if (clusterDisplay != null || adbCluster) getString(R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c)
                 else getString(R.string.shows_the_iphone_s_cluster_map_virtual_stream_description),
                 clusterMapEnabled) {
                 AirPlayPersistence.saveClusterMapEnabled(this, it)

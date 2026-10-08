@@ -629,7 +629,13 @@ object AirPlayPersistence {
     }
 
     fun loadClusterMapEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CLUSTER_MAP, false)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CLUSTER_MAP,
+            android.os.Build.FINGERPRINT.startsWith("AAOP_COCKPIT/") &&
+                ClusterMapPresentation.findDisplay(context)?.let { display ->
+                    val size = ClusterMapPresentation.sizeOf(display)
+                    ArcfoxClusterDisplay.matches(android.os.Build.FINGERPRINT, display.name,
+                        size.x, size.y, display.displayId)
+                } == true)
 
     fun loadAdbClusterEnabled(context: Context): Boolean = loadClusterMapEnabled(context) &&
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ADB_CLUSTER_ACTIVITY, false)

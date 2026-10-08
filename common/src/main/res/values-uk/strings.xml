@@ -701,4 +701,5 @@
     <string name="setup_badge_adb">Потрібен ADB через мережу</string>
     <string name="setup_done_title">Усе готово</string>
     <string name="setup_done_description">Під’єднайте iPhone зараз. Цей майстер можна знову відкрити в налаштуваннях.</string>
+    <string name="arcfox_cluster_map_description">Автоматично показує карту CarPlay на панелі приладів Arcfox. За потреби виберіть режим карти на панелі. Вимкніть, якщо карта закриває інформацію автомобіля.</string>
 </resources>

@@ -689,4 +689,5 @@
     <string name="setup_badge_adb">Requiere ADB por red</string>
     <string name="setup_done_title">Todo listo</string>
     <string name="setup_done_description">Conecta tu iPhone ahora. Puedes volver a abrir esta guía desde Ajustes.</string>
+    <string name="arcfox_cluster_map_description">Proyecta automáticamente el mapa de CarPlay en el cuadro de instrumentos de Arcfox. Selecciona el modo Mapa en el cuadro si es necesario. Desactívalo si tapa información del vehículo.</string>
 </resources>

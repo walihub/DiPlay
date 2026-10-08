@@ -116,6 +116,7 @@ internal object CarPlayMediaKeys {
                 if (nowPlaying.elapsedMillis != update.elapsedMillis) elapsedUpdatedAt = SystemClock.elapsedRealtime()
                 val metadataChanged = metadataChanged(nowPlaying, update) || artwork !== previousArtwork
                 nowPlaying = update
+                appContext?.let { ArcfoxMusicSync.update(it, update) }
                 // The iPhone repeats NowPlayingUpdate about twice a second for the position alone.
                 // Republishing the metadata each time sent a copy of the artwork through system_server
                 // to every media listener, and on a DiLink 5.0 Tang that exhausted memory within
@@ -129,6 +130,7 @@ internal object CarPlayMediaKeys {
     @Synchronized
     private fun onArtworkChanged(expected: CarPlayController, id: Int, bytes: ByteArray) {
         if (controller !== expected) return
+        appContext?.let { ArcfoxMusicSync.artwork(it, id, bytes, nowPlaying) }
         artworkOwner?.let { artworkQueue.submit(it, id, bytes) }
     }
 
@@ -225,6 +227,7 @@ internal object CarPlayMediaKeys {
     }
 
     private fun releaseLocked() {
+        ArcfoxMusicSync.clear(appContext)
         focusOwner = null
         artworkOwner = null
         artworkQueue.clear()

@@ -364,6 +364,7 @@
     <string name="show_phone_navigation_arrows_distance_and_street_names_on">在支援的比亞迪顯示器上顯示手機導航箭頭、距離和道路名稱。不同車型的相容性有所差異。</string>
     <string name="show_the_side_map_only_when_its_card_is_open_and_switch_to">僅在地圖卡片展開時顯示側邊地圖，並在「地圖主題」中切換為完整地圖。變更主題或卡片不會中斷 CarPlay 連線。</string>
     <string name="shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c">在儀表板上顯示 iPhone 地圖。透過方向盤操作儀表板選單，選擇小螢幕導航或全螢幕導航。</string>
+    <string name="arcfox_cluster_map_description">偵測到極狐儀表螢幕後自動投放 CarPlay 地圖。必要時在儀表上選擇地圖模式；若遮擋車輛資訊，可關閉此項。</string>
     <string name="start_carplay_automatically_after_device_boot">裝置啟動後自動啟動 CarPlay</string>
     <string name="starting">正在啟動</string>
     <string name="starting_airplay_service">正在啟動 AirPlay 服務</string>
