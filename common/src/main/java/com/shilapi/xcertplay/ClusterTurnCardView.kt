@@ -63,8 +63,7 @@ internal class ClusterTurnCardView(context: Context) : View(context) {
     init { applyPalette() }
 
     fun setLayout(xPercent: Int, yPercent: Int, sizePercent: Int) {
-        arcfoxSmallCard = ArcfoxClusterDisplay.isVehicle() &&
-            AirPlayPersistence.loadClusterSmallWindowMode(context) == 1
+        arcfoxSmallCard = ArcfoxClusterDisplay.isVehicle()
         this.xPercent = xPercent
         this.yPercent = yPercent
         this.sizePercent = sizePercent
@@ -131,7 +130,9 @@ internal class ClusterTurnCardView(context: Context) : View(context) {
         super.onDraw(canvas)
         val next = guidance ?: return
         val card = if (arcfoxSmallCard)
-            ArcfoxClusterDisplay.smallCardRect(width, height, xPercent, yPercent, sizePercent)
+            ArcfoxClusterDisplay.smallCardRect(width, height,
+                ArcfoxClusterDisplay.SMALL_CARD_X_PERCENT, ArcfoxClusterDisplay.SMALL_CARD_Y_PERCENT,
+                ArcfoxClusterDisplay.SMALL_CARD_SIZE_PERCENT)
         else ClusterTurnCardOverlay.card(width, height, xPercent, yPercent, sizePercent)
         if (arcfoxSmallCard) {
             drawArcfoxCard(canvas, next, card)

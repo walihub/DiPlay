@@ -92,6 +92,22 @@ class CarPlayHostDisplaySizeTest {
         }
     }
 
+    @Test fun transportErrorInTheConnectionMenuDoesNotReopenTheInstrumentSlot() {
+        startSession()
+        setField("menuOpen", true)
+        @Suppress("UNCHECKED_CAST")
+        val streams = getField("activeScreenStreamTypes") as MutableSet<Int>
+        streams += 111
+        CarPlayBackgroundSession.active = true
+        val listener = activity.javaClass.getDeclaredMethod("createSessionListener", Int::class.javaPrimitiveType)
+            .apply { isAccessible = true }.invoke(activity, getField("restartGeneration")) as AirPlaySessionListener
+        listener.onTransportError("test transport failure")
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(streams.contains(111)) // Original menu recovery keeps this state until reconnect.
+        assertEquals(true, getField("recoveryPendingAfterMenu"))
+        assertEquals(true, getField("arcfoxClusterLinkSuspended"))
+    }
+
     @Test fun surroundViewOpenAndCloseKeepsTheNegotiatedCanvas() {
         val display = startSession()
         applySize(1920, 942)

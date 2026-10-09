@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="arcfox_small_window_description">En Arcfox, selecciona el diseño alternativo manualmente. Mapa + tarjeta personalizada permite ajustar posición, tamaño, opacidad y tema por separado. Las coordenadas abarcan todo el cuadro. No cambia la ventana original. La posición del vehículo se aplica al reconectar.</string>
+    <string name="arcfox_small_window_description">En Arcfox, selecciona manualmente el diseño alternativo del vehículo. La tarjeta enlazada usa una región original fija; opacidad y tema son independientes. La posición del vehículo se aplica al reconectar.</string>
+    <string name="arcfox_card_link_description">Arcfox enlaza la tarjeta con la ventana original del cuadro. Posición fija: 99,206; tamaño: 490×382 píxeles. El mensaje original no permite mover ni redimensionar la ventana.</string>
 </resources>

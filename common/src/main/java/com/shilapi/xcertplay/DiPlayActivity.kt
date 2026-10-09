@@ -1942,36 +1942,45 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                             }
                         }
                         if (customCard) {
-                            card.addView(overlaySliderRow(
-                                getString(R.string.turn_card_overlay_size),
-                                ClusterTurnCardOverlay.sizePercents,
-                                AirPlayPersistence.loadClusterTurnCardOverlaySizePercent(this),
-                            ) { it -> getString(R.string.turn_card_overlay_size_option, it) }
-                                .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOverlaySizePercent(this, v) } })
+                            if (ArcfoxClusterDisplay.isVehicle()) card.addView(label(getString(R.string.arcfox_card_link_description), 14, MUTED))
+                            if (!ArcfoxClusterDisplay.isVehicle()) {
+                                card.addView(overlaySliderRow(
+                                    getString(R.string.turn_card_overlay_size),
+                                    ClusterTurnCardOverlay.sizePercents,
+                                    AirPlayPersistence.loadClusterTurnCardOverlaySizePercent(this),
+                                ) { it -> getString(R.string.turn_card_overlay_size_option, it) }
+                                    .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOverlaySizePercent(this, v) } })
+                            }
                             card.addView(overlaySliderRow(
                                 getString(R.string.turn_card_overlay_opacity),
                                 ClusterTurnCardOverlay.opacityPercents,
                                 AirPlayPersistence.loadClusterTurnCardOpacityPercent(this),
                             ) { it -> getString(R.string.turn_card_overlay_opacity_option, it) }
                                 .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOpacityPercent(this, v) } })
-                            card.addView(overlaySliderRow(
-                                getString(R.string.turn_card_overlay_horizontal),
-                                ClusterTurnCardOverlay.xPercents,
-                                AirPlayPersistence.loadClusterTurnCardOverlayXPercent(this),
-                            ) { it -> overlayOffsetLabel(it, getString(R.string.marker_left), getString(R.string.marker_right), 50) }
-                                .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOverlayXPercent(this, v) } })
-                            card.addView(overlaySliderRow(
-                                getString(R.string.turn_card_overlay_vertical),
-                                ClusterTurnCardOverlay.yPercents,
-                                AirPlayPersistence.loadClusterTurnCardOverlayYPercent(this),
-                            ) { it -> overlayOffsetLabel(it, getString(R.string.marker_up), getString(R.string.marker_down), 40) }
-                                .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOverlayYPercent(this, v) } })
-                            card.addView(button(getString(R.string.reset_turn_card_overlay), false) {
-                                AirPlayPersistence.saveClusterTurnCardOverlayXPercent(this, ClusterTurnCardOverlay.DEFAULT_X_PERCENT)
-                                AirPlayPersistence.saveClusterTurnCardOverlayYPercent(this, ClusterTurnCardOverlay.DEFAULT_Y_PERCENT)
-                                render()
-                            }, matchButton(10, 56))
-                            card.addView(label(getString(R.string.turn_card_overlay_note), 14, MUTED))
+                            if (!ArcfoxClusterDisplay.isVehicle()) {
+                                card.addView(overlaySliderRow(
+                                    getString(R.string.turn_card_overlay_horizontal),
+                                    ClusterTurnCardOverlay.xPercents,
+                                    AirPlayPersistence.loadClusterTurnCardOverlayXPercent(this),
+                                ) { it -> overlayOffsetLabel(it, getString(R.string.marker_left), getString(R.string.marker_right), 50) }
+                                    .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOverlayXPercent(this, v) } })
+                            }
+                            if (!ArcfoxClusterDisplay.isVehicle()) {
+                                card.addView(overlaySliderRow(
+                                    getString(R.string.turn_card_overlay_vertical),
+                                    ClusterTurnCardOverlay.yPercents,
+                                    AirPlayPersistence.loadClusterTurnCardOverlayYPercent(this),
+                                ) { it -> overlayOffsetLabel(it, getString(R.string.marker_up), getString(R.string.marker_down), 40) }
+                                    .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOverlayYPercent(this, v) } })
+                            }
+                            if (!ArcfoxClusterDisplay.isVehicle()) {
+                                card.addView(button(getString(R.string.reset_turn_card_overlay), false) {
+                                    AirPlayPersistence.saveClusterTurnCardOverlayXPercent(this, ClusterTurnCardOverlay.DEFAULT_X_PERCENT)
+                                    AirPlayPersistence.saveClusterTurnCardOverlayYPercent(this, ClusterTurnCardOverlay.DEFAULT_Y_PERCENT)
+                                    render()
+                                }, matchButton(10, 56))
+                                card.addView(label(getString(R.string.turn_card_overlay_note), 14, MUTED))
+                            }
                         }
                         val turnCard = officialCardOnly
                         if (!diLink4) {
@@ -2063,24 +2072,26 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                                     val smallWindowPlacementPreview = ClusterCardPlacementPreview(this, ClusterCardPlacementPreview.Mode.SMALL).also {
                                         card.addView(it, LinearLayout.LayoutParams(-1, dp(240)))
                                     }
-                                    card.addView(overlaySliderRow(
-                                        getString(R.string.cluster_small_window_card_size),
-                                        ClusterTurnCardOverlay.sizePercents,
-                                        AirPlayPersistence.loadClusterSmallWindowCardSizePercent(this),
-                                    ) { it -> getString(R.string.turn_card_overlay_size_option, it) }
-                                        .also { it2 -> it2.onSave = { v -> AirPlayPersistence.saveClusterSmallWindowCardSizePercent(this, v); smallWindowPlacementPreview.invalidate() } })
-                                    card.addView(overlaySliderRow(
-                                        getString(R.string.cluster_small_window_card_horizontal),
-                                        ClusterTurnCardOverlay.smallWindowXPercents,
-                                        AirPlayPersistence.loadClusterSmallWindowCardXPercent(this),
-                                    ) { it -> overlayOffsetLabel(it, getString(R.string.marker_left), getString(R.string.marker_right), 80) }
-                                        .also { it2 -> it2.onSave = { v -> AirPlayPersistence.saveClusterSmallWindowCardXPercent(this, v); smallWindowPlacementPreview.invalidate() } })
-                                    card.addView(overlaySliderRow(
-                                        getString(R.string.cluster_small_window_card_vertical),
-                                        ClusterTurnCardOverlay.smallWindowYPercents,
-                                        AirPlayPersistence.loadClusterSmallWindowCardYPercent(this),
-                                    ) { it -> overlayOffsetLabel(it, getString(R.string.marker_up), getString(R.string.marker_down), 25) }
-                                        .also { it2 -> it2.onSave = { v -> AirPlayPersistence.saveClusterSmallWindowCardYPercent(this, v); smallWindowPlacementPreview.invalidate() } })
+                                    if (!ArcfoxClusterDisplay.isVehicle()) {
+                                        card.addView(overlaySliderRow(
+                                            getString(R.string.cluster_small_window_card_size),
+                                            ClusterTurnCardOverlay.sizePercents,
+                                            AirPlayPersistence.loadClusterSmallWindowCardSizePercent(this),
+                                        ) { it -> getString(R.string.turn_card_overlay_size_option, it) }
+                                            .also { it2 -> it2.onSave = { v -> AirPlayPersistence.saveClusterSmallWindowCardSizePercent(this, v); smallWindowPlacementPreview.invalidate() } })
+                                        card.addView(overlaySliderRow(
+                                            getString(R.string.cluster_small_window_card_horizontal),
+                                            ClusterTurnCardOverlay.smallWindowXPercents,
+                                            AirPlayPersistence.loadClusterSmallWindowCardXPercent(this),
+                                        ) { it -> overlayOffsetLabel(it, getString(R.string.marker_left), getString(R.string.marker_right), 80) }
+                                            .also { it2 -> it2.onSave = { v -> AirPlayPersistence.saveClusterSmallWindowCardXPercent(this, v); smallWindowPlacementPreview.invalidate() } })
+                                        card.addView(overlaySliderRow(
+                                            getString(R.string.cluster_small_window_card_vertical),
+                                            ClusterTurnCardOverlay.smallWindowYPercents,
+                                            AirPlayPersistence.loadClusterSmallWindowCardYPercent(this),
+                                        ) { it -> overlayOffsetLabel(it, getString(R.string.marker_up), getString(R.string.marker_down), 25) }
+                                            .also { it2 -> it2.onSave = { v -> AirPlayPersistence.saveClusterSmallWindowCardYPercent(this, v); smallWindowPlacementPreview.invalidate() } })
+                                    }
                                     card.addView(overlaySliderRow(
                                         getString(R.string.cluster_small_window_card_opacity),
                                         ClusterTurnCardOverlay.opacityPercents,
@@ -4843,6 +4854,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                     appendLine()
                     appendLine("--- Arcfox HUD diagnostics ---")
                     appendLine(BydNavigationOutputs.arcfoxHudDiagnosticReport())
+                    appendLine(ArcfoxClusterLink.diagnosticReport())
                     appendLine()
                     appendLine("--- Standalone HUD compatibility ---")
                     appendLine(BydOutputSettings.standaloneHudDiagnosticReport(appContext))

@@ -26,7 +26,8 @@ class ArcfoxTurnCardRenderingTest {
         try {
             AirPlayPersistence.saveClusterSmallWindowMode(context, 1)
             val view = ClusterTurnCardView(context)
-            view.setLayout(18, 55, 40)
+            // Legacy saved positions must not move the card outside the native slot.
+            view.setLayout(80, 25, 95)
             view.setGuidance(ClusterTurnGuidance(2, 0, 800, "机场高速",
                 arrivalEpochSeconds = 1800000000, remainingSeconds = 2400, remainingMeters = 28000))
             view.measure(View.MeasureSpec.makeMeasureSpec(1920, View.MeasureSpec.EXACTLY),

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="arcfox_small_window_description">极狐手动选择备用布局。“地图＋自定义导航卡”可独立设置卡片位置、大小、透明度和主题；坐标按整个仪表屏计算。此项不会切换原车仪表窗口。车标位置在重新连接后生效。</string>
+    <string name="arcfox_small_window_description">极狐手动选择备用车标布局。联动导航卡使用固定的原车区域，透明度和主题可独立设置。车标位置在重新连接后生效。</string>
+    <string name="arcfox_card_link_description">极狐导航卡与原车仪表窗口联动，位置固定为 99,206，大小固定为 490×382 像素。原车联动消息不支持移动或缩放窗口。</string>
 </resources>

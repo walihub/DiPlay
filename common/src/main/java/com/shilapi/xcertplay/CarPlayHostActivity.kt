@@ -345,6 +345,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private var detectedCluster = ClusterActivityState.Snapshot(null, false)
     // Keep one surface per layer alive, including while its map card is hidden.
     private val clusterLayers = mutableMapOf<Boolean, ClusterMapPresentation>()
+    private var arcfoxClusterLinkSuspended = false
     private var clusterTurnGuidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance? = null
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
         runOnUiThread {
@@ -543,6 +544,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private val refreshTurnOverlay = object : Runnable {
         override fun run() {
             com.shilapi.xcertplay.hud.BydNavigationOutputs.refreshTurnOverlay()
+            updateArcfoxClusterCardLink()
             mainHandler.postDelayed(this, 1_000L)
         }
     }
@@ -1142,11 +1144,12 @@ class CarPlayHostActivity : ComponentActivity() {
         val overlay = CarPlayClusterDisplay.usesCustomTurnCard(AirPlayPersistence.loadClusterContent(this))
         // CN: the small-window navi keeps a second card rect, and the card glass has a theme override.
         val smallWindow = smallWindowActive()
-        val xPercent = if (smallWindow) AirPlayPersistence.loadClusterSmallWindowCardXPercent(this)
+        val nativeArcfoxCard = ArcfoxClusterDisplay.isVehicle()
+        val xPercent = if (nativeArcfoxCard) ArcfoxClusterDisplay.SMALL_CARD_X_PERCENT else if (smallWindow) AirPlayPersistence.loadClusterSmallWindowCardXPercent(this)
             else AirPlayPersistence.loadClusterTurnCardOverlayXPercent(this)
-        val yPercent = if (smallWindow) AirPlayPersistence.loadClusterSmallWindowCardYPercent(this)
+        val yPercent = if (nativeArcfoxCard) ArcfoxClusterDisplay.SMALL_CARD_Y_PERCENT else if (smallWindow) AirPlayPersistence.loadClusterSmallWindowCardYPercent(this)
             else AirPlayPersistence.loadClusterTurnCardOverlayYPercent(this)
-        val sizePercent = if (smallWindow) AirPlayPersistence.loadClusterSmallWindowCardSizePercent(this)
+        val sizePercent = if (nativeArcfoxCard) ArcfoxClusterDisplay.SMALL_CARD_SIZE_PERCENT else if (smallWindow) AirPlayPersistence.loadClusterSmallWindowCardSizePercent(this)
             else AirPlayPersistence.loadClusterTurnCardOverlaySizePercent(this)
         val cardNight = when (AirPlayPersistence.loadClusterTurnCardTheme(this)) {
             1 -> false
@@ -1170,8 +1173,21 @@ class CarPlayHostActivity : ComponentActivity() {
             presentation.setTurnCardNightMode(effectiveNight)
             presentation.setTurnCardGuidance(if (overlay) clusterTurnGuidance else null)
         }
+        updateArcfoxClusterCardLink()
     }
+    private fun updateArcfoxClusterCardLink() {
+        if (!ArcfoxClusterDisplay.isVehicle()) return
+        val presentation = clusterPresentation
+        val shown = !arcfoxClusterLinkSuspended && !shuttingDown.get() && CarPlayBackgroundSession.active &&
+            AirPlayPersistence.loadClusterMapEnabled(this) &&
+            CarPlayClusterDisplay.usesCustomTurnCard(AirPlayPersistence.loadClusterContent(this)) &&
+            clusterTurnGuidance != null && SCREEN_TYPE_ALT in activeScreenStreamTypes &&
+            presentation?.isShowing == true && presentation.mapVisible && clusterSurface?.isValid == true
+        ArcfoxClusterLink.request(this, shown)
+    }
+
     private fun dismissClusterPresentation() {
+        ArcfoxClusterLink.release(this)
         ClusterActivityOutput.stop(this)
         val presentations = (clusterLayers.values + listOfNotNull(clusterPresentation)).distinct()
         clusterLayers.clear()
@@ -1476,6 +1492,7 @@ class CarPlayHostActivity : ComponentActivity() {
             presentation.outputSurface === surface
         val direct = surface != null && adbClusterConfigured && ClusterActivityOutput.hasConfirmedRoute()
         controller?.setDashboardMapOutputVisible(presented || direct)
+        updateArcfoxClusterCardLink()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -4646,6 +4663,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     }
                     activeAirPlaySession = session
                     CarPlayBackgroundSession.active = true
+                    arcfoxClusterLinkSuspended = false
                     reconnectAttempts = 0
                     logThemeState(ThemeModeDiagnostics.Source.SESSION_ACTIVE, resources.configuration)
                     syncAirPlayDarkMode(ThemeModeDiagnostics.Source.SESSION_ACTIVE)
@@ -4686,11 +4704,14 @@ class CarPlayHostActivity : ComponentActivity() {
                     startupRetryBudget.disconnected()
                     activeAirPlaySession = null
                     CarPlayBackgroundSession.active = false
+                    arcfoxClusterLinkSuspended = true
+                    ArcfoxClusterLink.release(this@CarPlayHostActivity)
                     if (menuOpen) {
                         recoveryPendingAfterMenu = true
                         return@runOnUiThread
                     }
                     activeScreenStreamTypes.clear()
+                    updateArcfoxClusterCardLink()
                     ClusterActivityOutput.setStreamActive(false)
                     setConnectionStage(getString(R.string.carplay_session_ended_reconnecting))
                     appendLog("AirPlay session ended; reconnecting from scratch")
@@ -4702,11 +4723,14 @@ class CarPlayHostActivity : ComponentActivity() {
                 runOnUiThread {
                     if (controllerGeneration != restartGeneration || startupRetryStopped) return@runOnUiThread
                     startupRetryBudget.disconnected()
+                    arcfoxClusterLinkSuspended = true
+                    ArcfoxClusterLink.release(this@CarPlayHostActivity)
                     if (menuOpen) {
                         recoveryPendingAfterMenu = true
                         return@runOnUiThread
                     }
                     activeScreenStreamTypes.clear()
+                    updateArcfoxClusterCardLink()
                     ClusterActivityOutput.setStreamActive(false)
                     setConnectionStage(getString(R.string.transport_error_reconnecting))
                     appendLog("CarPlay transport error: $message; reconnecting from scratch")
@@ -5292,6 +5316,7 @@ class CarPlayHostActivity : ComponentActivity() {
         startupRetryButton?.visibility = View.GONE
         appendLog(reason)
         activeScreenStreamTypes.clear()
+        updateArcfoxClusterCardLink()
         ClusterActivityOutput.setStreamActive(false)
         setConnectionStage(reason)
         Log.i(TAG, "$reason; rebuilding stack at ${size.width}x${size.height}")
@@ -5690,6 +5715,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 clusterPresentation?.setStreamActive(active)
                 ClusterActivityOutput.setStreamActive(active)
                 MapMirrors.setStreamActive(active)
+                updateArcfoxClusterCardLink()
                 if (active) {
                     mainHandler.removeCallbacks(hideIdleCenterMap)
                     if (!CenterMapOverlay.shown) CenterMapOverlay.scheduleShow()

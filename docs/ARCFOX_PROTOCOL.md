@@ -279,7 +279,7 @@ Android 系统签名用于车机权限，与 MFi 认证相互独立。本次适�
 
 ## 小窗口导航卡适配
 
-极狐复用上游的“小窗口”备用布局：手动选择关闭或开启，选择“地图＋自定义导航卡”时独立设置卡片位置、大小、透明度和日夜主题。卡片仍绘制在 DiPlay 的仪表 Presentation 内，坐标按整个 1920×720 屏幕计算；预览也按同样坐标显示。它不会调用原车小窗口切换接口，也不改变 DirectRenderingCluster。地图仍使用 CarPlay stream 111。
+极狐复用上游的“小窗口”备用布局：手动选择关闭或开启，选择“地图＋自定义导航卡”时联动原车固定窗口，透明度和日夜主题可独立设置。卡片仍绘制在 DiPlay 的仪表 Presentation 内，坐标按整个 1920×720 屏幕计算；预览也按同样坐标显示。它调用原车 menuwidget 显示/取消接口，不改变 DirectRenderingCluster。地图仍使用 CarPlay stream 111。
 
 没有采集到极狐原车全屏/小窗状态的可靠接口，因此极狐隐藏比亚迪的自动检测选项，已有 AUTO 值按关闭处理。非极狐原有 OFF/ON/AUTO 行为保持。车标位置改用上游 1% 精度；极狐默认 (50%,75%)，旧偏移以该位置为基准迁移，显式保存的新百分比优先。小窗未设置车标时继承全屏位置，避免直接套用比亚迪右侧车标默认值。车标设置需重新连接，卡片设置沿用上游即时更新。
 
@@ -291,6 +291,14 @@ Android 系统签名用于车机权限，与 MFi 认证相互独立。本次适�
 
 参考用户指定的 `高德地图7.5_极狐适配_补必要包_关闭仪表3D车道线_DPI140_覆盖物1.0_车标0.85_platform_signed.apk`，读取 `assets/res/HmiRes/MultipleScreen.json`：大仪表 WindowId=1002，Surface=1920×720；巡航/导航 RenderConfig 均为 UiLeft=85、UiTop=130、UiWidth=720、UiHeight=-1、Dpi=140、MapOverlayScale=1.0。这些是 UI 容器字段，不能直接认定为内部 TBT 卡片矩形。Widget WindowId=1003，SurfaceWidth/Height=0、IsSurfaceVisiable=0、CreateSurfaceWhenInit=0，地图和 UI 均禁用。
 
-DiPlay 小窗卡片改为窗口 1002 的 CrossViewType=3 矩形：CrossViewStartX=99、CrossViewStartY=206、CrossViewWidth=490、CrossViewHeight=382；巡航和导航配置相同。之前按 UI 容器原点 (85,130) 和横向卡片比例推算位置不准确，已废弃。默认百分比控件为 X=18%、Y=55%、大小=40%，极狐专用坐标换算在默认值下精确得到 (99,206,490,382)，不因百分比取整偏移。改变位置/大小时在该基准上移动/等比缩放并限制在屏内；预览使用同一矩形算法。卡片内部包含转向、距离、道路和到达信息，所有绘制裁剪在同一矩形内，不在底部另画超出区域的信息条。已有显式保存的卡片设置保留，不覆盖用户值。地图车标仍为 (50%,75%)。
+DiPlay 小窗卡片改为窗口 1002 的 CrossViewType=3 矩形：CrossViewStartX=99、CrossViewStartY=206、CrossViewWidth=490、CrossViewHeight=382；巡航和导航配置相同。之前按 UI 容器原点 (85,130) 和横向卡片比例推算位置不准确，已废弃。内部基准为 X=18%、Y=55%、大小=40%，极狐专用坐标换算精确得到 (99,206,490,382)，不因百分比取整偏移。由于联动消息没有几何参数，渲染和预览均使用固定矩形，位置/大小控件在极狐隐藏。卡片内部包含转向、距离、道路和到达信息，所有绘制裁剪在同一矩形内，不在底部另画超出区域的信息条。已有显式保存的卡片设置保留，不覆盖用户值。地图车标仍为 (50%,75%)。
 
-原车 NaviService 的 ComServiceBase 在地图运行状态 202（非精品 3D 放大图）时调用 notifyMenuwidget(true)，203/停止导航时调用 false；ClusterHelpertools.getComService_navi012 构造 Message.id=224，JSON 为 command.id=Navi、command.sub=menuwidget、content.status=1（显示）/2（取消）。已采集 naviconf.conf 的 ClusterType=TYPE_COMSERVICE，因此此车路径为 ClusterComServiceUtils → IFgeComService.fgeSendMessage2ComService → 原车下游。消息不含矩形字段；不能仅凭它证明透明区域与 CrossView 矩形一致。现有 APK 没有原车下游透明区域实现，DiPlay 尚未发送此信号。卡片矩形适配和仪表端透明区域联动是两个独立事项。
+原车 NaviService 的 ComServiceBase 在地图运行状态 202（非精品 3D 放大图）时调用 notifyMenuwidget(true)，203/停止导航时调用 false；ClusterHelpertools.getComService_navi012 构造 Message.id=224，JSON 为 command.id=Navi、command.sub=menuwidget、content.status=1（显示）/2（取消）。已采集 naviconf.conf 的 ClusterType=TYPE_COMSERVICE，因此此车路径为 ClusterComServiceUtils → IFgeComService.fgeSendMessage2ComService → 原车下游。消息不含矩形字段；不能仅凭它证明透明区域与 CrossView 矩形一致。现有 APK 没有原车下游透明区域实现，DiPlay 已通过最小 HIDL 客户端接入此信号。卡片矩形适配和仪表端透明区域联动是两个独立事项。
+
+### 原车 menuwidget 联动接入
+
+ArcfoxClusterLink 在真实极狐仪表 Presentation 显示、Surface 有效、stream 111 活跃且“地图＋自定义导航卡”有有效导航指引时发送显示状态 1；卡片取消、流结束、地图隐藏、关闭仪表输出、退出或断线时发送状态 2。只释放自己曾请求的槽位，旧 Host 不得释放新 Host 的请求。失败保留待重试状态；包括显示部分失败后仍需要取消。成功显示每 5 秒重申一次以应对原车服务重启，失败/取消每秒重试，操作放在单线程后台，不在 UI 线程调用 HIDL。
+
+传输协议严格按已提取 SDK 的 wire format：descriptor=android.hardware.fgecomservice@1.0::IFgeComService、instance=default、getService retry=false；同步 transact code=1、flags=0；HwBlob 长度 40，id 位于 offset 0（Int32=224），content 字符串位于 offset 8，respond 位于 offset 24（空字符串）。verifySuccess 确认 Binder 事务完成，随后释放 parcel 资源。没有注册回调、没有启动原车服务、没有替换原车 APK。日志和诊断报告记录事务成功/失败及重试次数，事务成功不能视为仪表像素确认。
+
+由于原车消息没有矩形参数，极狐自定义卡片固定按 (99,206,490,382) 绘制，忽略旧保存的移动/缩放参数并隐藏相应控件（原偏好不删除）。全屏和小窗自定义卡片均使用此槽位；日夜和透明度仍可设置。其他车机保持原有布局与行为。现场透明区域是否恰好与 CrossView 一致、SELinux/隐藏 API 对平台签名应用的实际访问，需实车验证；本地已验证消息序列、失败恢复、wire format 和绘制裁剪。
