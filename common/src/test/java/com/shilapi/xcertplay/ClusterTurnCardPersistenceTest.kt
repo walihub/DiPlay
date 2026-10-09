@@ -23,12 +23,14 @@ class ClusterTurnCardPersistenceTest {
         val original = android.os.Build.FINGERPRINT
         org.robolectric.shadows.ShadowBuild.setFingerprint("AAOP_COCKPIT/test")
         try {
-            val card = ClusterTurnCardOverlay.card(1920, 720,
+            val card = ArcfoxClusterDisplay.smallCardRect(1920, 720,
                 AirPlayPersistence.loadClusterSmallWindowCardXPercent(context),
                 AirPlayPersistence.loadClusterSmallWindowCardYPercent(context),
                 AirPlayPersistence.loadClusterSmallWindowCardSizePercent(context))
-            assertEquals(81, card.left)
-            assertEquals(130, card.top)
+            assertEquals(99, card.left)
+            assertEquals(206, card.top)
+            assertEquals(490, card.width)
+            assertEquals(382, card.height)
             AirPlayPersistence.saveClusterSmallWindowCardXPercent(context, 60)
             assertEquals(60, AirPlayPersistence.loadClusterSmallWindowCardXPercent(context))
             assertEquals(75, AirPlayPersistence.loadClusterMarkerYPercent(context))

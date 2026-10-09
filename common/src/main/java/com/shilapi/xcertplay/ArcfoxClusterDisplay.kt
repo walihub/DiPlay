@@ -10,10 +10,31 @@ internal object ArcfoxClusterDisplay {
     private const val DISPLAY_NAME = "HDMI 屏幕"
     const val WIDTH = 1920
     const val HEIGHT = 720
-    // Amap 7.5 MultipleScreen.json: large instrument UI origin (85,130).
-    // With DiPlay's default 40% card (222x84), the 1% centre grid gives (81,130).
-    const val SMALL_CARD_X_PERCENT = 10
-    const val SMALL_CARD_Y_PERCENT = 24
+    // Window 1002, CrossViewType=3 in the supplied Amap 7.5 MultipleScreen.json.
+    const val SMALL_CARD_X_PERCENT = 18
+    const val SMALL_CARD_Y_PERCENT = 55
+    const val SMALL_CARD_SIZE_PERCENT = 40
+    val SMALL_CARD_RECT = com.shilapi.xcertplay.airplay.ClusterTurnCardOverlay.CardRect(99, 206, 490, 382)
+
+    fun smallCardRect(panelWidth: Int, panelHeight: Int, xPercent: Int, yPercent: Int,
+        sizePercent: Int): com.shilapi.xcertplay.airplay.ClusterTurnCardOverlay.CardRect {
+        require(panelWidth > 0 && panelHeight > 0)
+        val reference = SMALL_CARD_RECT
+        val scaleX = panelWidth.toDouble() / WIDTH
+        val scaleY = panelHeight.toDouble() / HEIGHT
+        val scale = sizePercent.coerceIn(30, 95).toDouble() / SMALL_CARD_SIZE_PERCENT
+        val fit = minOf(scale, panelWidth / (reference.width * scaleX),
+            panelHeight / (reference.height * scaleY))
+        val width = Math.round(reference.width * scaleX * fit).toInt().coerceIn(1, panelWidth)
+        val height = Math.round(reference.height * scaleY * fit).toInt().coerceIn(1, panelHeight)
+        val centerX = (reference.left + reference.width / 2.0) * scaleX +
+            (xPercent.coerceIn(10, 90) - SMALL_CARD_X_PERCENT) * panelWidth / 100.0
+        val centerY = (reference.top + reference.height / 2.0) * scaleY +
+            (yPercent.coerceIn(15, 70) - SMALL_CARD_Y_PERCENT) * panelHeight / 100.0
+        return com.shilapi.xcertplay.airplay.ClusterTurnCardOverlay.CardRect(
+            Math.round(centerX - width / 2.0).toInt().coerceIn(0, panelWidth - width),
+            Math.round(centerY - height / 2.0).toInt().coerceIn(0, panelHeight - height), width, height)
+    }
 
     fun isVehicle(fingerprint: String = android.os.Build.FINGERPRINT): Boolean =
         fingerprint.startsWith(FINGERPRINT_PREFIX)

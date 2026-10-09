@@ -25,6 +25,22 @@ class ArcfoxClusterDisplayTest {
         assertEquals(CarPlayClusterDisplay.MAP_URL, config.initialUrl)
     }
 
+    @Test fun smallCardMatchesAmapCrossViewAndScalesWithThePanel() {
+        assertEquals(ArcfoxClusterDisplay.SMALL_CARD_RECT,
+            ArcfoxClusterDisplay.smallCardRect(1920, 720, 18, 55, 40))
+        val scaled = ArcfoxClusterDisplay.smallCardRect(960, 360, 18, 55, 40)
+        assertEquals(50, scaled.left)
+        assertEquals(103, scaled.top)
+        assertEquals(245, scaled.width)
+        assertEquals(191, scaled.height)
+        val moved = ArcfoxClusterDisplay.smallCardRect(1920, 720, 28, 55, 40)
+        assertEquals(291, moved.left)
+        assertEquals(206, moved.top)
+        val large = ArcfoxClusterDisplay.smallCardRect(1920, 720, 90, 70, 95)
+        assertTrue(large.left >= 0 && large.top >= 0)
+        assertTrue(large.left + large.width <= 1920 && large.top + large.height <= 720)
+    }
+
     @Test fun requestsANativeClusterStream() {
         val config = ArcfoxClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP)
         assertEquals(1920, config.widthPixels)

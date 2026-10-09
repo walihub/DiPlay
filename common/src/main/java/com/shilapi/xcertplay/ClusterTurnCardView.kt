@@ -30,6 +30,7 @@ internal class ClusterTurnCardView(context: Context) : View(context) {
     private var night = false
     private var xPercent = ClusterTurnCardOverlay.DEFAULT_X_PERCENT
     private var yPercent = ClusterTurnCardOverlay.DEFAULT_Y_PERCENT
+    private var arcfoxSmallCard = false
     private var sizePercent = ClusterTurnCardOverlay.DEFAULT_SIZE_PERCENT
 
     private val accent = Color.rgb(10, 132, 255)
@@ -62,6 +63,8 @@ internal class ClusterTurnCardView(context: Context) : View(context) {
     init { applyPalette() }
 
     fun setLayout(xPercent: Int, yPercent: Int, sizePercent: Int) {
+        arcfoxSmallCard = ArcfoxClusterDisplay.isVehicle() &&
+            AirPlayPersistence.loadClusterSmallWindowMode(context) == 1
         this.xPercent = xPercent
         this.yPercent = yPercent
         this.sizePercent = sizePercent
@@ -127,7 +130,13 @@ internal class ClusterTurnCardView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val next = guidance ?: return
-        val card = ClusterTurnCardOverlay.card(width, height, xPercent, yPercent, sizePercent)
+        val card = if (arcfoxSmallCard)
+            ArcfoxClusterDisplay.smallCardRect(width, height, xPercent, yPercent, sizePercent)
+        else ClusterTurnCardOverlay.card(width, height, xPercent, yPercent, sizePercent)
+        if (arcfoxSmallCard) {
+            drawArcfoxCard(canvas, next, card)
+            return
+        }
         val h = card.height.toFloat()
         val w = card.width.toFloat()
 
@@ -162,6 +171,36 @@ internal class ClusterTurnCardView(context: Context) : View(context) {
             )
         }
         drawInfoStrip(canvas, next, card.left, (card.top + h).toInt(), w.toInt(), h.toInt())
+    }
+
+    /** Keep all pixels inside the native CrossView rect, including arrival information. */
+    private fun drawArcfoxCard(canvas: Canvas, next: ClusterTurnGuidance, card: ClusterTurnCardOverlay.CardRect) {
+        val saved = canvas.save()
+        canvas.clipRect(card.left, card.top, card.left + card.width, card.top + card.height)
+        val w = card.width.toFloat()
+        val h = card.height.toFloat()
+        val left = card.left.toFloat()
+        val top = card.top.toFloat()
+        val inset = w * 0.08f
+        rect.set(left, top, left + w, top + h)
+        canvas.drawRoundRect(rect, h * 0.08f, h * 0.08f, glassPaint)
+        canvas.drawRoundRect(rect, h * 0.08f, h * 0.08f, strokePaint)
+        val glyphSide = minOf(w * 0.30f, h * 0.34f)
+        drawGlyph(canvas, next, left + inset, top + h * 0.09f, glyphSide,
+            next.roundaboutExit.takeIf { it in 1..9 })
+        distancePaint.textSize = minOf(h * 0.15f, w * 0.12f)
+        val textLeft = left + inset + glyphSide + w * 0.04f
+        canvas.drawText(ellipsize(distanceLabel(next.distanceMeters), left + w - inset - textLeft, distancePaint),
+            textLeft, top + h * 0.30f, distancePaint)
+        roadPaint.textSize = h * 0.11f
+        canvas.drawText(ellipsize(roadLabel(next), w - inset * 2, roadPaint),
+            left + inset, top + h * 0.58f, roadPaint)
+        infoPaint.textSize = h * 0.07f
+        infoParts(next).take(3).forEachIndexed { index, text ->
+            canvas.drawText(ellipsize(text, w - inset * 2, infoPaint),
+                left + inset, top + h * (0.73f + index * 0.10f), infoPaint)
+        }
+        canvas.restoreToCount(saved)
     }
 
     /** The arrival/duration/distance pill that hangs under the card, like the stock nav bar. */

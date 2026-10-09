@@ -291,4 +291,6 @@ Android 系统签名用于车机权限，与 MFi 认证相互独立。本次适�
 
 参考用户指定的 `高德地图7.5_极狐适配_补必要包_关闭仪表3D车道线_DPI140_覆盖物1.0_车标0.85_platform_signed.apk`，读取 `assets/res/HmiRes/MultipleScreen.json`：大仪表 WindowId=1002，Surface=1920×720；巡航/导航 RenderConfig 均为 UiLeft=85、UiTop=130、UiWidth=720、UiHeight=-1、Dpi=140、MapOverlayScale=1.0。这些是 UI 容器字段，不能直接认定为内部 TBT 卡片矩形。Widget WindowId=1003，SurfaceWidth/Height=0、IsSurfaceVisiable=0、CreateSurfaceWhenInit=0，地图和 UI 均禁用。
 
-DiPlay 以 (85,130) 的 UI 原点作为默认位置参考，保留自身卡片比例和默认 40% 大小（222×84 像素），换算到 1% 中心网格为 X=10%、Y=24%，实际左上角 (81,130)，横向误差 4 像素。仅在未保存小窗/全屏卡片位置时使用极狐默认值，已有用户位置优先。不改变此前要求的地图车标 (50%,75%)。高德 Carposition=0.70、CarIconScale=0.85 属于其地图引擎设置，未用于覆盖 CarPlay 设置。Dpi=140 是此 JSON 的配置值，不能单独证明运行时 Android View 密度。
+DiPlay 小窗卡片改为窗口 1002 的 CrossViewType=3 矩形：CrossViewStartX=99、CrossViewStartY=206、CrossViewWidth=490、CrossViewHeight=382；巡航和导航配置相同。之前按 UI 容器原点 (85,130) 和横向卡片比例推算位置不准确，已废弃。默认百分比控件为 X=18%、Y=55%、大小=40%，极狐专用坐标换算在默认值下精确得到 (99,206,490,382)，不因百分比取整偏移。改变位置/大小时在该基准上移动/等比缩放并限制在屏内；预览使用同一矩形算法。卡片内部包含转向、距离、道路和到达信息，所有绘制裁剪在同一矩形内，不在底部另画超出区域的信息条。已有显式保存的卡片设置保留，不覆盖用户值。地图车标仍为 (50%,75%)。
+
+原车 NaviService 的 ComServiceBase 在地图运行状态 202（非精品 3D 放大图）时调用 notifyMenuwidget(true)，203/停止导航时调用 false；ClusterHelpertools.getComService_navi012 构造 Message.id=224，JSON 为 command.id=Navi、command.sub=menuwidget、content.status=1（显示）/2（取消）。已采集 naviconf.conf 的 ClusterType=TYPE_COMSERVICE，因此此车路径为 ClusterComServiceUtils → IFgeComService.fgeSendMessage2ComService → 原车下游。消息不含矩形字段；不能仅凭它证明透明区域与 CrossView 矩形一致。现有 APK 没有原车下游透明区域实现，DiPlay 尚未发送此信号。卡片矩形适配和仪表端透明区域联动是两个独立事项。

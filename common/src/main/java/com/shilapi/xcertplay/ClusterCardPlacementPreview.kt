@@ -41,7 +41,9 @@ internal class ClusterCardPlacementPreview(context: Context, private val mode: M
         canvas.drawRoundRect(RectF(left, top, left + panelWidth, top + panelHeight),
             7f * density, 7f * density, stroke)
         fun card(x: Int, y: Int, size: Int, paint: Paint) {
-            val rect = ClusterTurnCardOverlay.card(1920, 720, x, y, size)
+            val rect = if (mode == Mode.SMALL && ArcfoxClusterDisplay.isVehicle())
+                ArcfoxClusterDisplay.smallCardRect(1920, 720, x, y, size)
+            else ClusterTurnCardOverlay.card(1920, 720, x, y, size)
             canvas.drawRoundRect(RectF(left + rect.left * scale, top + rect.top * scale,
                 left + (rect.left + rect.width) * scale, top + (rect.top + rect.height) * scale),
                 5f * density, 5f * density, paint)
