@@ -75,6 +75,23 @@ class CarPlayHostDisplaySizeTest {
         controllerConstruction.close()
     }
 
+    @Test fun arcfoxAllowsManualCardLayoutWithoutBydAutomaticModeDetection() {
+        val original = android.os.Build.FINGERPRINT
+        org.robolectric.shadows.ShadowBuild.setFingerprint("AAOP_COCKPIT/test")
+        try {
+            AirPlayPersistence.saveClusterSmallWindowMode(activity, 2)
+            assertEquals(false, invoke("clusterSmallWindowAutoEnabled"))
+            assertEquals(false, invoke("smallWindowActive"))
+            AirPlayPersistence.saveClusterSmallWindowMode(activity, 1)
+            assertEquals(true, invoke("smallWindowActive"))
+            AirPlayPersistence.saveClusterSmallWindowMode(activity, 0)
+            assertEquals(false, invoke("smallWindowActive"))
+        } finally {
+            org.robolectric.shadows.ShadowBuild.setFingerprint(original)
+            AirPlayPersistence.saveClusterSmallWindowMode(activity, 0)
+        }
+    }
+
     @Test fun surroundViewOpenAndCloseKeepsTheNegotiatedCanvas() {
         val display = startSession()
         applySize(1920, 942)
@@ -101,6 +118,34 @@ class CarPlayHostDisplaySizeTest {
         assertEquals(1, getField("restartGeneration"))
         assertNull(getField("sessionDisplay"))
     }
+
+    @Test fun resumingASquareCanvasInTheSameWindowDoesNotReconnect() {
+        AirPlayPersistence.saveAdaptPipResolution(activity, true)
+        val display = startSession(windowHeight = 1080, canvasHeight = 1920)
+        val video = object : TextureView(activity) {
+            override fun post(action: Runnable): Boolean = Handler(Looper.getMainLooper()).post(action)
+        }.apply { layout(0, 0, 1920, 1080) }
+        setField("videoView", video)
+
+        invoke("onResume")
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
+
+        assertSame(display, getField("sessionDisplay"))
+        assertEquals(size(1920, 1080), getField("activeDisplaySize"))
+        assertEquals(0, getField("restartGeneration"))
+        assertNull(getField("pendingDisplaySize"))
+    }
+
+    @Test fun aRealPipAspectChangeStillReconnectsWithASquareCanvas() {
+        AirPlayPersistence.saveAdaptPipResolution(activity, true)
+        startSession(windowHeight = 1080, canvasHeight = 1920)
+
+        applySize(700, 1080)
+
+        assertEquals(1, getField("restartGeneration"))
+        assertNull(getField("sessionDisplay"))
+    }
+
 
     @Test fun connectingInANarrowWindowRebuildsWhenTheCameraCloses() {
         startSession(windowWidth = 700)

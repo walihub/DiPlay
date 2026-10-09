@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="arcfox_small_window_description">极狐手动选择备用布局。“地图＋自定义导航卡”可独立设置卡片位置、大小、透明度和主题；坐标按整个仪表屏计算。此项不会切换原车仪表窗口。车标位置在重新连接后生效。</string>
+</resources>

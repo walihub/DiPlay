@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="arcfox_small_window_description">En Arcfox, selecciona el diseño alternativo manualmente. Mapa + tarjeta personalizada permite ajustar posición, tamaño, opacidad y tema por separado. Las coordenadas abarcan todo el cuadro. No cambia la ventana original. La posición del vehículo se aplica al reconectar.</string>
+</resources>

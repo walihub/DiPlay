@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="arcfox_small_window_description">On Arcfox, select the alternate layout manually. For Map + custom turn card, card position, size, opacity and theme are independent. Coordinates use the whole instrument screen. This does not switch the native instrument window. Marker changes apply after reconnecting.</string>
+</resources>

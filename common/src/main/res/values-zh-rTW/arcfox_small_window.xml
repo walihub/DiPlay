@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="arcfox_small_window_description">極狐手動選擇備用佈局。「地圖＋自訂導航卡」可獨立設定卡片位置、大小、透明度和主題；座標按整個儀表螢幕計算。此項不會切換原車儀表視窗。車標位置在重新連線後生效。</string>
+</resources>

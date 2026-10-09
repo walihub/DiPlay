@@ -16,6 +16,15 @@ class ArcfoxClusterDisplayTest {
         assertFalse(ArcfoxClusterDisplay.matches("BYD/test", "HDMI 屏幕", 1920, 720, 2))
     }
 
+    @Test fun acceptsTheUpstreamOnePercentMarkerCoordinates() {
+        val config = ArcfoxClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP_WITH_CUSTOM_CARD,
+            markerXPercent = 50, markerYPercent = 75)
+        val safe = config.safeArea!!
+        assertEquals(960, (safe.left + config.widthPixels - safe.right) / 2)
+        assertEquals(540, (safe.top + config.heightPixels - safe.bottom) / 2)
+        assertEquals(CarPlayClusterDisplay.MAP_URL, config.initialUrl)
+    }
+
     @Test fun requestsANativeClusterStream() {
         val config = ArcfoxClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP)
         assertEquals(1920, config.widthPixels)
