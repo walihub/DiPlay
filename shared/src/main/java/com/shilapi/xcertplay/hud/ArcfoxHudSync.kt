@@ -31,8 +31,42 @@ internal object ArcfoxHudSync {
     private var context: Context? = null
     private var car: Any? = null
     private var propertyManager: Any? = null
-    private var sent: Guidance? = null
-    private var ownsHud = false
+    private val writer = ArcfoxHudWriter(::writeProperties)
+    private var writeStage = "idle"
+    private var routeFrames = 0L
+    private var maneuverFrames = 0L
+    private var lastRouteAt = 0L
+    private var lastManeuverAt = 0L
+    private var lastReason = "not_started"
+    private var lastReadback = "not_read"
+    private val events = ArrayDeque<String>()
+    @Volatile private var report = "not_started"
+
+    fun diagnosticReport(): String = report
+
+    private fun event(message: String) {
+        events.addLast("${System.currentTimeMillis()} $message")
+        while (events.size > 64) events.removeFirst()
+        Log.i(TAG, message)
+    }
+
+    private fun refreshReport() {
+        report = "routeFrames=$routeFrames maneuverFrames=$maneuverFrames " +
+            "lastRouteAt=$lastRouteAt lastManeuverAt=$lastManeuverAt " +
+            "reason=$lastReason stage=$writeStage pendingOutput=${writer.mayHaveOutput} readback=$lastReadback\n" +
+            events.joinToString("\n")
+    }
+
+    private fun publish(readback: Boolean = false) {
+        val maneuver = route.currentApple()
+        val next = maneuver?.let(::guidance)?.takeIf { it.icon != 0 }
+        val reason = if (maneuver != null && next == null) "unsupported_apple_type=${maneuver.type}"
+            else route.visibilityReason()
+        if (reason != lastReason) { lastReason = reason; event("visibility=$reason") }
+        transmit(next)
+        if (readback && next != null) probeVehicle(next)
+        refreshReport()
+    }
 
     fun available(): Boolean = Build.FINGERPRINT.startsWith("AAOP_COCKPIT/")
 
@@ -41,7 +75,7 @@ internal object ArcfoxHudSync {
         worker.execute {
             this.context = context.applicationContext
             if (staleCheck == null) staleCheck = worker.scheduleAtFixedRate({
-                transmit(route.currentApple()?.let(::guidance)?.takeIf { it.icon != 0 })
+                publish(readback = true)
             }, 1, 1, TimeUnit.SECONDS)
         }
     }
@@ -49,10 +83,13 @@ internal object ArcfoxHudSync {
     fun onFrame(frame: Iap2Frame) {
         if (!available()) return
         worker.execute {
-            val change = route.accept(frame.messageId, frame.payload)
-            if (change == BydHudRouteChange.NONE) return@execute
-            val next = route.currentApple()?.let(::guidance)?.takeIf { it.icon != 0 }
-            transmit(next)
+            if (frame.messageId == BydHudRouteState.ROUTE_GUIDANCE_UPDATE) {
+                routeFrames++; lastRouteAt = System.currentTimeMillis()
+            } else if (frame.messageId == BydHudRouteState.ROUTE_GUIDANCE_MANEUVER_UPDATE) {
+                maneuverFrames++; lastManeuverAt = System.currentTimeMillis()
+            }
+            route.accept(frame.messageId, frame.payload)
+            publish()
         }
     }
 
@@ -61,7 +98,9 @@ internal object ArcfoxHudSync {
         worker.execute {
             route.clear()
             transmit(null)
-            sent = null
+            event("session_end")
+            lastReason = "session_end"
+            refreshReport()
             staleCheck?.cancel(false)
             staleCheck = null
             car?.let { connection ->
@@ -98,35 +137,67 @@ internal object ArcfoxHudSync {
     }
 
     private fun transmit(next: Guidance?) {
-        if (next == sent || (next == null && !ownsHud)) return
         try {
-            val manager = properties()
-            val integer: Method = manager.javaClass.getMethod("setIntProperty",
-                Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-            fun set(id: Int, value: Int) = integer.invoke(manager, id, 0, value)
-            if (next == null) {
-                set(STATUS, 1)
-                set(ICON, 0)
-                set(DISTANCE, 0)
-                set(BAR, 0)
-                ownsHud = false
-            } else {
-                set(ICON, next.icon)
-                set(DISTANCE, next.distance.coerceIn(0, 2_000_000))
-                set(BAR, next.bar.coerceIn(0, 100))
-                roadPacket(next.road)?.let { bytes ->
-                    manager.javaClass.getMethod("setProperty", Class::class.java,
-                        Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Any::class.java)
-                        .invoke(manager, ByteArray::class.java, ROAD_TEXT, 0, bytes)
-                }
-                set(STATUS, 0)
-                ownsHud = true
-            }
-            sent = next
+            if (writer.transmit(next)) event("write_ok active=${next != null} icon=${next?.icon ?: 0}")
         } catch (error: Exception) {
             propertyManager = null
-            Log.w(TAG, "HUD output unavailable", error)
+            val cause = (error as? java.lang.reflect.InvocationTargetException)?.targetException ?: error
+            event("write_failed stage=$writeStage cause=${cause.javaClass.simpleName}")
+            Log.w(TAG, "HUD output unavailable stage=$writeStage", error)
         }
+    }
+
+    /** Read only: detect whether the VHAL values still match; never reassert competing output. */
+    private fun probeVehicle(expected: Guidance) {
+        val manager = propertyManager ?: return
+        var stage = "getIntProperty"
+        val observation = try {
+            val read = manager.javaClass.getMethod("getIntProperty",
+                Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+            fun get(id: Int): Int {
+                stage = "property=$id"
+                return read.invoke(manager, id, 0) as Int
+            }
+            val status = get(STATUS)
+            val icon = get(ICON)
+            val distance = get(DISTANCE)
+            val matches = status == 0 && icon == expected.icon &&
+                distance == expected.distance.coerceIn(0, 2_000_000)
+            "${if (matches) "match" else "mismatch"} status=$status icon=$icon distance=$distance"
+        } catch (error: Exception) {
+            val cause = (error as? java.lang.reflect.InvocationTargetException)?.targetException ?: error
+            "unavailable $stage cause=${cause.javaClass.simpleName}"
+        }
+        if (observation != lastReadback) {
+            lastReadback = observation
+            event("readback=$observation")
+        }
+    }
+
+    private fun writeProperties(next: Guidance?) {
+        writeStage = "connect_property_service"
+        val manager = properties()
+        val integer: Method = manager.javaClass.getMethod("setIntProperty",
+            Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+        fun set(id: Int, value: Int) {
+            writeStage = "property=$id"
+            integer.invoke(manager, id, 0, value)
+        }
+        if (next == null) {
+            set(STATUS, 1); set(ICON, 0); set(DISTANCE, 0); set(BAR, 0)
+        } else {
+            set(ICON, next.icon)
+            set(DISTANCE, next.distance.coerceIn(0, 2_000_000))
+            set(BAR, next.bar.coerceIn(0, 100))
+            roadPacket(next.road)?.let { bytes ->
+                writeStage = "property=$ROAD_TEXT"
+                manager.javaClass.getMethod("setProperty", Class::class.java,
+                    Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Any::class.java)
+                    .invoke(manager, ByteArray::class.java, ROAD_TEXT, 0, bytes)
+            }
+            set(STATUS, 0)
+        }
+        writeStage = "complete"
     }
 
     /** NaviService sends 03 18 07, one-byte GBK payload length, then the road bytes. */
@@ -148,5 +219,29 @@ internal object ArcfoxHudSync {
         12 -> 97 + (exit.coerceIn(1, 10) - 1)
         15 -> 24; 17 -> 80; 18 -> 81; 19 -> 82
         else -> 0
+    }
+}
+
+/** Tracks successful writes, invalidating the cache after even a partial vehicle-property failure. */
+internal class ArcfoxHudWriter(private val output: (ArcfoxHudSync.Guidance?) -> Unit) {
+    private var valid = false
+    private var sent: ArcfoxHudSync.Guidance? = null
+    var mayHaveOutput = false
+        private set
+
+    fun transmit(next: ArcfoxHudSync.Guidance?): Boolean {
+        if ((valid && next == sent) || (next == null && !mayHaveOutput)) return false
+        // A failed multi-property write may already have changed some properties.
+        if (next != null) mayHaveOutput = true
+        try {
+            output(next)
+            sent = next
+            valid = true
+            mayHaveOutput = next != null
+            return true
+        } catch (error: Exception) {
+            valid = false
+            throw error
+        }
     }
 }

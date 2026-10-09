@@ -4593,6 +4593,9 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                         DiagnosticRedactor.redact(line)?.let { appendLine(it) }
                     }
                     appendLine()
+                    appendLine("--- Arcfox HUD diagnostics ---")
+                    appendLine(BydNavigationOutputs.arcfoxHudDiagnosticReport())
+                    appendLine()
                     appendLine("--- Standalone HUD compatibility ---")
                     appendLine(BydOutputSettings.standaloneHudDiagnosticReport(appContext))
                     appendLine()

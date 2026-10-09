@@ -65,6 +65,8 @@ object BydNavigationOutputs {
     /** Whether the car is in P (read over adb), or null when it cannot tell. Blocking. */
     fun parked(context: Context): Boolean? = BydParkedState.parked(context.applicationContext)
 
+    fun arcfoxHudDiagnosticReport(): String = ArcfoxHudSync.diagnosticReport()
+
     fun start(context: Context) {
         val app = context.applicationContext
         ArcfoxHudSync.attach(app)

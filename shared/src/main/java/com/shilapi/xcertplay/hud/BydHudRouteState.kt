@@ -96,6 +96,18 @@ internal class BydHudRouteState(
         return wasActive
     }
 
+    /** Read-only explanation for the Arcfox diagnostic report; does not change route policy. */
+    internal fun visibilityReason(): String {
+        if (!routeActive) return "no_active_route"
+        if (activeIndex < 0) return "missing_active_index"
+        val updated = lastRouteUpdateNs ?: return "missing_route_update"
+        if (nanoTime() - updated >= staleRouteNs) return "route_stale_30s"
+        val empty = emptyListSinceNs
+        if (empty != null && nanoTime() - empty >= emptyListHideNs) return "empty_list_3s"
+        if (maneuvers[activeIndex] == null) return "missing_maneuver_details"
+        return "guidance_ready"
+    }
+
     private fun activeManeuver(): Maneuver? {
         if (!routeActive || activeIndex < 0) return null
         val updated = lastRouteUpdateNs ?: return null

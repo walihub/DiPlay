@@ -15,9 +15,12 @@ internal object ArcfoxClusterDisplay {
         fingerprint.startsWith(FINGERPRINT_PREFIX) && displayId != 0 &&
             name == DISPLAY_NAME && width == WIDTH && height == HEIGHT
 
-    fun streamConfig(content: CarPlayClusterDisplay.Content): AirPlayDisplayConfig =
+    fun streamConfig(content: CarPlayClusterDisplay.Content,
+        horizontalStep: Int = 0, verticalStep: Int = 0): AirPlayDisplayConfig =
         CarPlayClusterDisplay.config(
             WIDTH, HEIGHT, scalePercent = 100, content = content,
-            baseSafeArea = AirPlayInsets(top = 0, bottom = 0, left = 0, right = 0),
+            horizontalStep = horizontalStep, verticalStep = verticalStep,
+            // Safe-area centre is (50%, 75%): centred horizontally, one quarter below centre.
+            baseSafeArea = AirPlayInsets(top = 50, bottom = 0, left = 0, right = 0),
         )
 }

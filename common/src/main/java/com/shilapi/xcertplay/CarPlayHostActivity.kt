@@ -1151,7 +1151,9 @@ class CarPlayHostActivity : ComponentActivity() {
                 }
                 if (ArcfoxClusterDisplay.matches(android.os.Build.FINGERPRINT, display.name,
                         size.x, size.y, display.displayId)) {
-                    return ArcfoxClusterDisplay.streamConfig(AirPlayPersistence.loadClusterContent(this)).also {
+                    return ArcfoxClusterDisplay.streamConfig(AirPlayPersistence.loadClusterContent(this),
+                        AirPlayPersistence.loadClusterMarkerHorizontalStep(this),
+                        AirPlayPersistence.loadClusterMarkerVerticalStep(this)).also {
                         MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels
                     }
                 }
