@@ -11,6 +11,7 @@ android {
 
     defaultConfig {
         minSdk = 25
+        consumerProguardFiles("arcfox-consumer-rules.pro")
     }
 
     compileOptions {
@@ -30,6 +31,7 @@ android {
 }
 
 dependencies {
+    compileOnly(project(":hidl-stubs"))
     api(project(":shared"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

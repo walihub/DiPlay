@@ -31,6 +31,8 @@ internal class BydHudRouteState(
     private val nanoTime: () -> Long = System::nanoTime,
     private val staleRouteNs: Long = STALE_ROUTE_NS,
     private val emptyListHideNs: Long = EMPTY_LIST_HIDE_NS,
+    /** Arcfox may retain unchanged guidance while its owning CarPlay session is live. */
+    private val retainWhileSessionAlive: () -> Boolean = { false },
     /**
      * The dashboard overlay keeps the last instruction across a wireless session drop: the iPhone
      * often sends NoRouteSet (0) while the tunnel is tearing down, which is not a real arrival.
@@ -101,7 +103,7 @@ internal class BydHudRouteState(
         if (!routeActive) return "no_active_route"
         if (activeIndex < 0) return "missing_active_index"
         val updated = lastRouteUpdateNs ?: return "missing_route_update"
-        if (nanoTime() - updated >= staleRouteNs) return "route_stale_30s"
+        if (nanoTime() - updated >= staleRouteNs && !retainWhileSessionAlive()) return "route_stale_30s"
         val empty = emptyListSinceNs
         if (empty != null && nanoTime() - empty >= emptyListHideNs) return "empty_list_3s"
         if (maneuvers[activeIndex] == null) return "missing_maneuver_details"
@@ -111,7 +113,7 @@ internal class BydHudRouteState(
     private fun activeManeuver(): Maneuver? {
         if (!routeActive || activeIndex < 0) return null
         val updated = lastRouteUpdateNs ?: return null
-        if (nanoTime() - updated >= staleRouteNs) return null
+        if (nanoTime() - updated >= staleRouteNs && !retainWhileSessionAlive()) return null
         val emptySince = emptyListSinceNs
         if (emptySince != null && nanoTime() - emptySince >= emptyListHideNs) return null
         return maneuvers[activeIndex]

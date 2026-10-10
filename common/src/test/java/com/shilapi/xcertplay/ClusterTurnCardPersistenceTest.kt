@@ -19,7 +19,7 @@ class ClusterTurnCardPersistenceTest {
         AirPlayPersistence.overlaySettingsListener = null
     }
 
-    @Test fun arcfoxMigrationKeepsThreeQuarterHeightAndHonoursNewPercentSettings() {
+    @Test fun arcfoxDefaultMovesUpAndHonoursSavedPercentSettings() {
         val original = android.os.Build.FINGERPRINT
         org.robolectric.shadows.ShadowBuild.setFingerprint("AAOP_COCKPIT/test")
         try {
@@ -33,11 +33,11 @@ class ClusterTurnCardPersistenceTest {
             assertEquals(382, card.height)
             AirPlayPersistence.saveClusterSmallWindowCardXPercent(context, 60)
             assertEquals(60, AirPlayPersistence.loadClusterSmallWindowCardXPercent(context))
-            assertEquals(75, AirPlayPersistence.loadClusterMarkerYPercent(context))
+            assertEquals(60, AirPlayPersistence.loadClusterMarkerYPercent(context))
             assertEquals(50, AirPlayPersistence.loadClusterSmallWindowMarkerXPercent(context))
-            assertEquals(75, AirPlayPersistence.loadClusterSmallWindowMarkerYPercent(context))
+            assertEquals(60, AirPlayPersistence.loadClusterSmallWindowMarkerYPercent(context))
             AirPlayPersistence.saveClusterMarkerVerticalStep(context, -1)
-            assertEquals(65, AirPlayPersistence.loadClusterMarkerYPercent(context))
+            assertEquals(50, AirPlayPersistence.loadClusterMarkerYPercent(context))
             AirPlayPersistence.saveClusterMarkerYPercent(context, 73)
             assertEquals(73, AirPlayPersistence.loadClusterMarkerYPercent(context))
             AirPlayPersistence.saveClusterSmallWindowMarkerYPercent(context, 62)

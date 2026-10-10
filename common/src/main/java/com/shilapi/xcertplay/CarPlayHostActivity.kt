@@ -1187,6 +1187,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun dismissClusterPresentation() {
+        ArcfoxWheelZoom.release(this)
         ArcfoxClusterLink.release(this)
         ClusterActivityOutput.stop(this)
         val presentations = (clusterLayers.values + listOfNotNull(clusterPresentation)).distinct()
@@ -1492,6 +1493,7 @@ class CarPlayHostActivity : ComponentActivity() {
             presentation.outputSurface === surface
         val direct = surface != null && adbClusterConfigured && ClusterActivityOutput.hasConfirmedRoute()
         controller?.setDashboardMapOutputVisible(presented || direct)
+        ArcfoxWheelZoom.update(this, controller, presented || direct)
         updateArcfoxClusterCardLink()
     }
 
@@ -1517,6 +1519,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        ArcfoxWheelZoom.release(this)
         resetSidePanel()
         releaseSidePanelEffects()
         hostAppearanceResumed = false

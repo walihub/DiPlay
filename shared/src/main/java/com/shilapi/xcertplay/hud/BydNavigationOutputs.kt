@@ -68,6 +68,8 @@ object BydNavigationOutputs {
 
     fun arcfoxHudDiagnosticReport(): String = ArcfoxHudSync.diagnosticReport()
 
+    fun beginArcfoxHudSession(owner: Any, sessionAlive: () -> Boolean) = ArcfoxHudSync.begin(owner, sessionAlive)
+
     fun start(context: Context) {
         val app = context.applicationContext
         ArcfoxHudSync.attach(app)
@@ -82,7 +84,7 @@ object BydNavigationOutputs {
         BydCarPlayCall.attach(app)
     }
 
-    internal fun onFrame(frame: Iap2Frame) {
+    internal fun onFrame(frame: Iap2Frame, arcfoxOwner: Any? = null) {
         if (frame.messageId == ClusterSongState.NOW_PLAYING_UPDATE) {
             BydClusterSong.onFrame(frame)
             return
@@ -93,7 +95,7 @@ object BydNavigationOutputs {
         }
         if (frame.messageId != BydHudRouteState.ROUTE_GUIDANCE_UPDATE &&
             frame.messageId != BydHudRouteState.ROUTE_GUIDANCE_MANEUVER_UPDATE) return
-        ArcfoxHudSync.onFrame(frame)
+        if (arcfoxOwner != null) ArcfoxHudSync.onFrame(arcfoxOwner, frame)
         val owned = frame // Iap2Frame is immutable and defensively copies its payload.
         updateOverlay(owned)
         if (useStandalone) standalone.submit { BydStandaloneNavigationBridge.onFrame(owned) }
@@ -156,8 +158,8 @@ object BydNavigationOutputs {
     fun dashboardNote(text: String, source: Int? = null) = BydClusterSong.note(text, source)
 
     /** Best effort while alive; Android does not guarantee callbacks before force-stop. */
-    fun endNow(preserveTurnOverlay: Boolean = false) {
-        ArcfoxHudSync.end()
+    fun endNow(preserveTurnOverlay: Boolean = false, arcfoxOwner: Any? = null) {
+        ArcfoxHudSync.end(arcfoxOwner)
         standalone.clear(); hud.clear(); cluster.clear(); BydClusterSong.end(); BydCarPlayCall.end()
         // Only a wireless session replacement retains the card. Explicit controller close
         // and wired disconnect still clear it immediately.

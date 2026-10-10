@@ -48,6 +48,27 @@ class ArcfoxClusterAutoSelectionTest {
         assertTrue(AirPlayPersistence.loadClusterMapEnabled(context))
     }
 
+    @Test fun mapTextureCoversThePhysicalCanvasWithoutExposingNativeMap() {
+        val display = context.getSystemService(DisplayManager::class.java).getDisplay(displayId)
+        val presentation = ClusterMapPresentation(context, display, onSurface = {})
+        try {
+            presentation.show()
+            fun descendants(view: android.view.View): List<android.view.View> =
+                listOf(view) + if (view is android.view.ViewGroup)
+                    (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
+            val texture = descendants(presentation.window!!.decorView)
+                .filterIsInstance<android.view.TextureView>().single()
+            assertEquals(null, texture.clipBounds)
+            assertEquals(android.view.ViewGroup.LayoutParams.MATCH_PARENT, texture.layoutParams.width)
+            assertEquals(android.view.ViewGroup.LayoutParams.MATCH_PARENT, texture.layoutParams.height)
+            assertEquals(60, AirPlayPersistence.loadClusterMarkerYPercent(context))
+            AirPlayPersistence.saveClusterMarkerYPercent(context, 70)
+            assertEquals(70, AirPlayPersistence.loadClusterMarkerYPercent(context))
+        } finally {
+            presentation.dismiss()
+        }
+    }
+
     @Test fun userCanDisableAutomaticMapProjection() {
         AirPlayPersistence.saveClusterMapEnabled(context, false)
         assertFalse(AirPlayPersistence.loadClusterMapEnabled(context))

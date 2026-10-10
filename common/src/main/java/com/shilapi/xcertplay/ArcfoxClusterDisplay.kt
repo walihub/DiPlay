@@ -10,6 +10,13 @@ internal object ArcfoxClusterDisplay {
     private const val DISPLAY_NAME = "HDMI 屏幕"
     const val WIDTH = 1920
     const val HEIGHT = 720
+    // Fixed iPhone layout region. Full-panel map background still covers the OEM map.
+    const val MAP_VIEW_WIDTH = 920
+    const val MAP_VIEW_HEIGHT = 610
+    const val MAP_VIEW_LEFT = 500
+    const val MAP_VIEW_TOP = 80
+    const val DEFAULT_MARKER_Y_PERCENT = 60
+    val MAP_VIEW_INSETS = AirPlayInsets(top = 80, bottom = 30, left = 500, right = 500)
     // Window 1002, CrossViewType=3 in the supplied Amap 7.5 MultipleScreen.json.
     const val SMALL_CARD_X_PERCENT = 18
     const val SMALL_CARD_Y_PERCENT = 55
@@ -43,14 +50,13 @@ internal object ArcfoxClusterDisplay {
         fingerprint.startsWith(FINGERPRINT_PREFIX) && displayId != 0 &&
             name == DISPLAY_NAME && width == WIDTH && height == HEIGHT
 
+    @Suppress("UNUSED_PARAMETER")
     fun streamConfig(content: CarPlayClusterDisplay.Content,
         horizontalStep: Int = 0, verticalStep: Int = 0,
         markerXPercent: Int? = null, markerYPercent: Int? = null): AirPlayDisplayConfig =
-        CarPlayClusterDisplay.config(
-            WIDTH, HEIGHT, scalePercent = 100, content = content,
-            horizontalStep = horizontalStep, verticalStep = verticalStep,
-            markerXPercent = markerXPercent, markerYPercent = markerYPercent,
-            // Safe-area centre is (50%, 75%): centred horizontally, one quarter below centre.
-            baseSafeArea = AirPlayInsets(top = 50, bottom = 0, left = 0, right = 0),
+        CarPlayClusterDisplay.config(WIDTH, HEIGHT, scalePercent = 100, content = content).copy(
+            viewArea = null,
+            safeArea = MAP_VIEW_INSETS,
+            safeAreaDrawOutside = true,
         )
 }

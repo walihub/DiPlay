@@ -158,6 +158,35 @@ class AudioFocusAutoYieldTest {
         assertTrue(volumes(late).isEmpty())
     }
 
+    @Test fun arcfoxAssistantAcquiresAndReleasesFocusWithGlobalFocusOff() {
+        val reports = mutableListOf<String>()
+        val coordinator = AudioFocusCoordinator(context, false, true, reports::add,
+            arcfoxAssistantFocus = true).also(coordinators::add)
+        val media = track(); val assistant = track(); val navigation = track()
+        coordinator.acquire(media, AudioChannel.MEDIA, attributes)
+        coordinator.acquire(navigation, AudioChannel.NAVIGATION, attributes)
+        assertTrue(reports.isEmpty())
+        coordinator.acquire(assistant, AudioChannel.ASSISTANT, attributes)
+        assertTrue(reports.any { it.contains("channel=ASSISTANT gain=3 granted=1") })
+        coordinator.release(assistant)
+        reports.clear()
+        coordinator.onExternalFocusChange(AudioManager.AUDIOFOCUS_GAIN)
+        assertTrue(reports.any { it.contains("noRequest=true") })
+        assertTrue(volumes(media).isEmpty())
+    }
+
+    @Test fun arcfoxAssistantOverridesMediaFocusThenRestoresIt() {
+        val reports = mutableListOf<String>()
+        val coordinator = AudioFocusCoordinator(context, true, true, reports::add,
+            arcfoxAssistantFocus = true).also(coordinators::add)
+        val media = track(); val assistant = track()
+        coordinator.acquire(media, AudioChannel.MEDIA, attributes)
+        coordinator.acquire(assistant, AudioChannel.ASSISTANT, attributes)
+        assertTrue(reports.last().contains("channel=ASSISTANT gain=3"))
+        coordinator.release(assistant)
+        assertTrue(reports.last().contains("channel=MEDIA gain=1"))
+    }
+
     private fun coordinator(enabled: Boolean = true, autoYield: Boolean = true) =
         AudioFocusCoordinator(context, enabled, autoYield).also(coordinators::add)
     private fun track(): AudioTrack = AudioTrack.Builder().setAudioAttributes(attributes)

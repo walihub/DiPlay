@@ -80,6 +80,8 @@ internal class ClusterMapPresentation(
             }
         if (plan != null || arcfox) {
             val textureView = TextureView(context)
+            // Render all 1920x720 pixels. The iPhone's safe area constrains guidance;
+            // clipping here exposes the original navigation layer underneath.
             fun transform() {
                 if (plan == null) return
                 textureView.setTransform(Matrix().apply {

@@ -60,6 +60,7 @@ internal object CarPlayMediaKeys {
     private var focusHeld = false
     private var appContext: Context? = null
     private var mediaAudioActive = false
+    private var iphonePlaying = false
     private var nowPlaying = CarPlayNowPlaying()
     private var elapsedUpdatedAt = 0L
     private var artwork: Bitmap? = null
@@ -102,9 +103,15 @@ internal object CarPlayMediaKeys {
 
     /** The iPhone started or stopped playing; may run on any thread. */
     private fun onIphonePlaying(expected: CarPlayController, playing: Boolean) {
-        if (playing) mainHandler.post {
+        mainHandler.post {
             synchronized(this) {
-                if (controller === expected) regainFocusLocked()
+                if (controller !== expected) return@synchronized
+                val startedPlaying = playing && !iphonePlaying
+                iphonePlaying = playing
+                if (playing) regainFocusLocked()
+                if (startedPlaying) {
+                    recoverArcfoxMediaRouteLocked()
+                }
             }
         }
     }
@@ -192,12 +199,25 @@ internal object CarPlayMediaKeys {
         focusRequest = request
         focusHeld = granted
         if (granted) forwardGrantedFocusLocked()
+        recoverArcfoxMediaRouteLocked()
         session = MediaSession(context, "DiPlay CarPlay").apply {
             setCallback(callback, mainHandler)
             setMetadata(androidMetadata(nowPlaying, shownArtworkLocked()))
             isActive = true
         }
         Log.i(TAG, "media keys active focusGranted=$granted")
+    }
+
+    private fun recoverArcfoxMediaRouteLocked() {
+        val context = appContext ?: return
+        val audio = context.getSystemService(AudioManager::class.java) ?: return
+        runCatching {
+            if (ArcfoxMediaRouteRecovery.recover(android.os.Build.FINGERPRINT,
+                    AirPlayPersistence.loadMediaAudioChannel(context), focusHeld, audio,
+                    packageName = context.packageName, report = { Log.i(TAG, it) })) {
+                Log.i(TAG, "Arcfox media route resumed stream=3")
+            }
+        }.onFailure { Log.w(TAG, "Arcfox media route resume failed", it) }
     }
 
     private fun forwardGrantedFocusLocked() {
@@ -242,6 +262,7 @@ internal object CarPlayMediaKeys {
         }
         session = null
         mediaAudioActive = false
+        iphonePlaying = false
         nowPlaying = CarPlayNowPlaying()
         artwork = null
         artworkCache.clear()

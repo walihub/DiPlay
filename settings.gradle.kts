@@ -31,3 +31,6 @@ include(":maphost")
 project(":maphost").projectDir = file("samples/maphost")
 include(":home")
 project(":home").projectDir = file("samples/home")
+
+include(":hidl-stubs")
+project(":hidl-stubs").projectDir = file("tools/hidl-stubs")

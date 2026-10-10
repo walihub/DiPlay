@@ -838,7 +838,7 @@ object AirPlayPersistence {
                 ClusterTurnCardOverlay.snap(percent, CarPlayClusterDisplay.markerXPercents)).apply()
     }
 
-    fun defaultClusterMarkerYPercent(): Int = if (ArcfoxClusterDisplay.isVehicle()) 75 else 45
+    fun defaultClusterMarkerYPercent(): Int = if (ArcfoxClusterDisplay.isVehicle()) ArcfoxClusterDisplay.DEFAULT_MARKER_Y_PERCENT else 45
 
     fun loadClusterMarkerYPercent(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

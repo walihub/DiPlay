@@ -9,6 +9,16 @@ import org.junit.Test
 class ArcfoxClusterDisplayTest {
     private val fingerprint = "AAOP_COCKPIT/msmnile_gvmq/msmnile_gvmq:11/test"
 
+    @Test fun fixedSafeAreaExcludesBothSidesAndTopAndBottom() {
+        val area = ArcfoxClusterDisplay.MAP_VIEW_INSETS
+        assertEquals(500, area.left)
+        assertEquals(500, area.right)
+        assertEquals(80, area.top)
+        assertEquals(30, area.bottom)
+        assertEquals(920, ArcfoxClusterDisplay.WIDTH - area.left - area.right)
+        assertEquals(610, ArcfoxClusterDisplay.HEIGHT - area.top - area.bottom)
+    }
+
     @Test fun selectsOnlyTheObservedPhysicalInstrument() {
         assertTrue(ArcfoxClusterDisplay.matches(fingerprint, "HDMI 屏幕", 1920, 720, 2))
         assertFalse(ArcfoxClusterDisplay.matches(fingerprint, "HDMI 屏幕", 3840, 720, 0))
@@ -16,13 +26,13 @@ class ArcfoxClusterDisplayTest {
         assertFalse(ArcfoxClusterDisplay.matches("BYD/test", "HDMI 屏幕", 1920, 720, 2))
     }
 
-    @Test fun acceptsTheUpstreamOnePercentMarkerCoordinates() {
-        val config = ArcfoxClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP_WITH_CUSTOM_CARD,
-            markerXPercent = 50, markerYPercent = 75)
-        val safe = config.safeArea!!
-        assertEquals(960, (safe.left + config.widthPixels - safe.right) / 2)
-        assertEquals(540, (safe.top + config.heightPixels - safe.bottom) / 2)
-        assertEquals(CarPlayClusterDisplay.MAP_URL, config.initialUrl)
+    @Test fun savedMarkerPositionsCannotShrinkOrMoveTheFixedSafeArea() {
+        for (x in listOf(5, 50, 95)) for (y in listOf(5, 60, 75, 95)) {
+            val config = ArcfoxClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP_WITH_CUSTOM_CARD,
+                markerXPercent = x, markerYPercent = y)
+            assertEquals(ArcfoxClusterDisplay.MAP_VIEW_INSETS, config.safeArea)
+            assertEquals(CarPlayClusterDisplay.MAP_URL, config.initialUrl)
+        }
     }
 
     @Test fun smallCardMatchesAmapCrossViewAndScalesWithThePanel() {
@@ -47,16 +57,13 @@ class ArcfoxClusterDisplayTest {
         assertEquals(720, config.heightPixels)
         assertEquals(CarPlayClusterDisplay.MAP_URL, config.initialUrl)
     }
-    @Test fun putsTheMarkerAtHorizontalCentreAndThreeQuarterHeight() {
-        val config = ArcfoxClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP)
+    @Test fun fullCanvasAndOutsideDrawingRemainEnabledWithoutVideoCropping() {
+        val config = ArcfoxClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP,
+            horizontalStep = 1, verticalStep = -1)
         val safe = config.safeArea!!
         assertEquals(960, (safe.left + config.widthPixels - safe.right) / 2)
-        assertEquals(540, (safe.top + config.heightPixels - safe.bottom) / 2)
+        assertEquals(385, (safe.top + config.heightPixels - safe.bottom) / 2)
+        assertEquals(null, config.viewArea)
         assertEquals(true, config.safeAreaDrawOutside)
-        val moved = ArcfoxClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP,
-            horizontalStep = 1, verticalStep = -1)
-        val area = moved.safeArea!!
-        assertEquals(1152, (area.left + moved.widthPixels - area.right) / 2)
-        assertEquals(468, (area.top + moved.heightPixels - area.bottom) / 2)
     }
 }

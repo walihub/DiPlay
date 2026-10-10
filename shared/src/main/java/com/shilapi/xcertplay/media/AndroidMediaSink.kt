@@ -42,6 +42,7 @@ internal class AudioFocusCoordinator(
     private val enabled: Boolean,
     private val muteMediaOnTransientLoss: Boolean = true,
     private val report: (String) -> Unit = {},
+    private val arcfoxAssistantFocus: Boolean = false,
 ) {
     private data class Entry(val channel: AudioChannel, val attributes: AudioAttributes, var appliedVolume: Float = FULL_VOLUME)
 
@@ -88,7 +89,8 @@ internal class AudioFocusCoordinator(
 
     @Synchronized
     fun acquire(track: AudioTrack, channel: AudioChannel, attributes: AudioAttributes) {
-        if (closed || !enabled || manager == null || channel == AudioChannel.NAVIGATION) return
+        if (closed || (!enabled && !(arcfoxAssistantFocus && channel == AudioChannel.ASSISTANT)) ||
+            manager == null || channel == AudioChannel.NAVIGATION) return
         active[track] = Entry(channel, attributes)
         refreshRequest()
         applyMediaVolume(track, active.getValue(track))
@@ -113,7 +115,9 @@ internal class AudioFocusCoordinator(
     }
 
     private fun refreshRequest() {
-        val primary = active.values.maxByOrNull { it.channel.focusPriority() }
+        val primary = active.values.maxByOrNull {
+            if (arcfoxAssistantFocus && it.channel == AudioChannel.ASSISTANT) 4 else it.channel.focusPriority()
+        }
         if (primary == null) {
             focusGeneration += 1
             val abandoned = request
@@ -222,6 +226,7 @@ class AndroidMediaSink(
         audioFocusEnabled,
         audioFocusAutoYield,
         onAudioDiagnostic,
+        arcfoxAssistantFocus = Build.FINGERPRINT.orEmpty().startsWith("AAOP_COCKPIT/"),
     )
 
     /** The media-key session may own Android's current focus request for this same sink. */
@@ -677,7 +682,13 @@ class AndroidMediaSink(
                 appContext != null && BydBluetoothSuspend.isSuspendedByUs(appContext),
             echoReference = echoReference,
             voiceFilter = callVoiceFilter && format.audioType == TELEPHONY_AUDIO_TYPE,
-        ).also { audioRenderers[id] = it }
+        ).also {
+            it.configureArcfoxAssistantRouting(Build.FINGERPRINT.orEmpty().startsWith("AAOP_COCKPIT/"))
+            if (Build.FINGERPRINT.startsWith("AAOP_COCKPIT/") && navigationChannel == 11) {
+                it.configureArcfoxNavigationFocus(audioManager)
+            }
+            audioRenderers[id] = it
+        }
     }
 
     private companion object {
@@ -1606,6 +1617,10 @@ private class AudioRenderer(
     private val pcmChannels = if (format.channels >= 2) 2 else 1
     private val voiceFilter = if (voiceFilter && format.sampleRate > 0) VoiceFilter(format.sampleRate, pcmChannels) else null
 
+    private var navigationFocusManager: AudioManager? = null
+    @Volatile private var navigationFocusGeneration = 0L
+    private var navigationFocusRequest: AudioFocusRequestCompat? = null
+    @Volatile private var arcfoxNavigationFocus: ArcfoxNavigationFocus? = null
     private var trackAttributes: AudioAttributes? = null
     private var mappedChannel: AudioChannel? = null
     private val navigationPlaybackToken = NavigationPlayback.open()
@@ -1655,9 +1670,20 @@ private class AudioRenderer(
     private var lastPcmWriteNs = 0L
     private var rebufferCount = 0
     private var diagnosticStage = "starting"
+    private var arcfoxAssistantRouting = false
     private var lastDecoderOutputMetadata: String? = null
     private var decoderOutputReports = 0
     private val thread = Thread(::run, "carplay-audio").apply { isDaemon = true }
+
+    fun configureArcfoxNavigationFocus(manager: AudioManager?) {
+        check(!started)
+        navigationFocusManager = manager
+    }
+
+    fun configureArcfoxAssistantRouting(enabled: Boolean) {
+        check(!started)
+        arcfoxAssistantRouting = enabled
+    }
 
     fun start() {
         if (started) return
@@ -1685,6 +1711,7 @@ private class AudioRenderer(
     override fun close() {
         AmbientMusicController.closeRenderer(ambientRendererToken)
         running = false
+        arcfoxNavigationFocus?.close()
         NavigationPlayback.close(navigationPlaybackToken)
         thread.interrupt()
     }
@@ -1843,6 +1870,47 @@ private class AudioRenderer(
         }
         diagnosticStage = "track-attributes"
         trackAttributes = audioTrackAttributesForFocus(built, attributes)
+        val arcfoxFocusManager = navigationFocusManager
+        if (arcfoxFocusManager != null && usesArcfoxNavigationFocus(
+                Build.FINGERPRINT, mappedChannel == AudioChannel.NAVIGATION, actualLegacyStreamType)) {
+            arcfoxNavigationFocus = ArcfoxNavigationFocus(
+                request = {
+                    try {
+                        val generation = ++navigationFocusGeneration
+                        val listener = AudioManager.OnAudioFocusChangeListener { change ->
+                            if (generation != navigationFocusGeneration) return@OnAudioFocusChangeListener
+                            runCatching { report("Audio: Arcfox navigation focus change=$change") }
+                            if (change == AudioManager.AUDIOFOCUS_LOSS ||
+                                change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                                arcfoxNavigationFocus?.lost { generation == navigationFocusGeneration }
+                            }
+                        }
+                        val next = AudioFocusRequestCompat(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK,
+                            trackAttributes ?: attributes, listener, Handler(Looper.getMainLooper()))
+                        val result = next.request(arcfoxFocusManager)
+                        runCatching { report("Audio: Arcfox navigation focus requested stream=11 usage=${next.attributes.usage} result=$result") }
+                        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                            navigationFocusRequest = next
+                            true
+                        } else {
+                            navigationFocusGeneration++
+                            next.abandon(arcfoxFocusManager)
+                            false
+                        }
+                    } catch (error: Exception) {
+                        runCatching { report("Audio: Arcfox navigation focus unavailable ${error.javaClass.simpleName}: ${error.message}") }
+                        false
+                    }
+                },
+                abandon = {
+                    navigationFocusGeneration++
+                    val previous = navigationFocusRequest
+                    navigationFocusRequest = null
+                    runCatching { previous?.abandon(arcfoxFocusManager) }
+                    runCatching { report("Audio: Arcfox navigation focus released") }
+                },
+            )
+        }
         diagnosticStage = "track-capacity"
         val capacityBytes = built.bufferSizeInFrames * frameBytes
         startThresholdBytes = MediaAudioBuffer.startBytesFor(plan.startBytes, capacityBytes, PREBUFFER_WRITE_CHUNK_BYTES)
@@ -1879,6 +1947,7 @@ private class AudioRenderer(
     private fun channelOverride(channel: AudioChannel): Int = when (channel) {
         AudioChannel.MEDIA -> mediaChannel
         AudioChannel.NAVIGATION -> navigationChannel
+        AudioChannel.ASSISTANT -> if (arcfoxAssistantRouting) 17 else 0
         else -> 0
     }
 
@@ -2149,6 +2218,7 @@ private class AudioRenderer(
 
     private fun writePcm(data: ByteArray, offset: Int = 0, length: Int = data.size) {
         val track = track ?: return
+        if (length > 0) arcfoxNavigationFocus?.pcm(NavigationPlayback.snapshot().priorityVoiceActive)
         diagnosticStage = "track-write"
         if (!firstPcmLogged && length > 0) {
             firstPcmLogged = true
@@ -2235,6 +2305,10 @@ private class AudioRenderer(
 
     private fun maintainPlaybackBuffer() {
         val track = track ?: return
+        arcfoxNavigationFocus?.maintain(
+            pending = queue.isNotEmpty() || bufferProgress.queuedBytes(track.playbackHeadPosition) > 0,
+            priorityVoice = NavigationPlayback.snapshot().priorityVoiceActive,
+        )
         if (bufferProgress.shouldRebuffer(mappedChannel == AudioChannel.MEDIA, playbackStarted,
                 track.underrunCount > underrunsAtPlaybackStart, queue.isEmpty(), track.playbackHeadPosition,
                 startThresholdBytes / 2L)) {
@@ -2337,6 +2411,7 @@ private class AudioRenderer(
 
     @Synchronized
     private fun release() {
+        arcfoxNavigationFocus?.close()
         NavigationPlayback.close(navigationPlaybackToken)
         AmbientMusicController.closeRenderer(ambientRendererToken)
         abandonAudioFocus()
