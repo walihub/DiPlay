@@ -161,7 +161,7 @@ class AudioFocusAutoYieldTest {
     @Test fun arcfoxAssistantAcquiresAndReleasesFocusWithGlobalFocusOff() {
         val reports = mutableListOf<String>()
         val coordinator = AudioFocusCoordinator(context, false, true, reports::add,
-            arcfoxAssistantFocus = true).also(coordinators::add)
+            vehicleAssistantFocus = true).also(coordinators::add)
         val media = track(); val assistant = track(); val navigation = track()
         coordinator.acquire(media, AudioChannel.MEDIA, attributes)
         coordinator.acquire(navigation, AudioChannel.NAVIGATION, attributes)
@@ -178,7 +178,7 @@ class AudioFocusAutoYieldTest {
     @Test fun arcfoxAssistantOverridesMediaFocusThenRestoresIt() {
         val reports = mutableListOf<String>()
         val coordinator = AudioFocusCoordinator(context, true, true, reports::add,
-            arcfoxAssistantFocus = true).also(coordinators::add)
+            vehicleAssistantFocus = true).also(coordinators::add)
         val media = track(); val assistant = track()
         coordinator.acquire(media, AudioChannel.MEDIA, attributes)
         coordinator.acquire(assistant, AudioChannel.ASSISTANT, attributes)

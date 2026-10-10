@@ -1,5 +1,8 @@
 package com.shilapi.xcertplay.media
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxNavigationFocus
+import com.shilapi.xcertplay.vehicle.arcfox.usesArcfoxNavigationFocus
+
 import org.junit.Assert.*
 import org.junit.Test
 

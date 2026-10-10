@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterDisplay
+
 import com.shilapi.xcertplay.airplay.ClusterTurnCardOverlay
 import org.junit.Assert.assertEquals
 import org.junit.Before

@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterDisplay
+
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View

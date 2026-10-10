@@ -1,5 +1,8 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxWheelZoomCommand
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxWheelZoomTarget
+
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith

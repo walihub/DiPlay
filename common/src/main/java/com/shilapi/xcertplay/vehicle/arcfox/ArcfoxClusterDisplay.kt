@@ -1,4 +1,6 @@
-package com.shilapi.xcertplay
+package com.shilapi.xcertplay.vehicle.arcfox
+
+import com.shilapi.xcertplay.*
 
 import com.shilapi.xcertplay.airplay.AirPlayDisplayConfig
 import com.shilapi.xcertplay.airplay.AirPlayInsets

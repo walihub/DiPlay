@@ -1,4 +1,6 @@
-package com.shilapi.xcertplay.hud
+package com.shilapi.xcertplay.vehicle.arcfox
+
+import com.shilapi.xcertplay.hud.*
 
 import android.content.Context
 import android.content.pm.PackageManager

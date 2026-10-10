@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxMusicSync
+
 import android.app.Application
 import android.os.Build
 import com.shilapi.xcertplay.media.CarPlayNowPlaying

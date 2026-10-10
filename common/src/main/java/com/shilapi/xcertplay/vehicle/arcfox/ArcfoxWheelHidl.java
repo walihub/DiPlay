@@ -1,4 +1,4 @@
-package com.shilapi.xcertplay;
+package com.shilapi.xcertplay.vehicle.arcfox;
 
 import android.os.HwBinder;
 import android.os.HwParcel;

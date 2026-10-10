@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterDisplay
+
 import android.app.Presentation
 import android.content.Context
 import android.graphics.Color

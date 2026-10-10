@@ -1,4 +1,6 @@
-package com.shilapi.xcertplay.hud
+package com.shilapi.xcertplay.vehicle.arcfox
+
+import com.shilapi.xcertplay.hud.*
 
 /** A short iAP2 handoff gap is tolerated; an ended control channel is not a live navigation source. */
 internal class ArcfoxHudControlState(private val nanoTime: () -> Long = System::nanoTime) {

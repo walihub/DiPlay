@@ -36,7 +36,7 @@ import com.shilapi.xcertplay.airplay.VideoInCar
 import com.shilapi.xcertplay.airplay.VideoPlaybackDelivery
 import com.shilapi.xcertplay.hud.BydBluetoothSuspend
 import com.shilapi.xcertplay.hud.BydNavigationOutputs
-import com.shilapi.xcertplay.hud.ArcfoxHudControlState
+import com.shilapi.xcertplay.vehicle.VehicleAdapters
 import com.shilapi.xcertplay.iap2.session.Iap2Session
 import com.shilapi.xcertplay.mfi.Iap2MfiAuthenticationClient
 import com.shilapi.xcertplay.mfi.MfiAuthenticationClient
@@ -169,13 +169,15 @@ class CarPlayController(
     private val locationProvider: Iap2LocationProvider? = null,
     private val vehicleStatusProvider: com.shilapi.xcertplay.transport.VehicleStatusProvider? = null,
 ) : Closeable {
+    private val vehicleAdapter = VehicleAdapters.session(context, this)
+
     init {
         require(!config.locationReportingEnabled || locationProvider != null) {
             "A location provider is required when location reporting is enabled"
         }
         WifiScanPause.restoreIfNeeded(context.applicationContext)
         BydNavigationOutputs.start(context.applicationContext)
-        BydNavigationOutputs.beginArcfoxHudSession(this, ::arcfoxHudSessionAlive)
+        vehicleAdapter.onSessionStarted(::vehicleSessionAlive, ::vehicleControlGeneration)
         BydNavigationOutputs.setClusterStreamControl(::applyClusterUi)
     }
 
@@ -222,10 +224,9 @@ class CarPlayController(
     @Volatile private var mux: Iap2UsbMuxHost? = null
     @Volatile private var csm: Iap2Session? = null
     @Volatile private var activeSession: AirPlaySession? = null
-    private val arcfoxHudControls = ArcfoxHudControlState()
-
-    private fun arcfoxHudSessionAlive(): Boolean = !closed && activeSession?.isClosed == false &&
-        arcfoxHudControls.isAlive(if (config.transport == CarPlayTransport.WIRELESS) wirelessGeneration.get() else 0)
+    private fun vehicleSessionAlive(): Boolean = !closed && activeSession?.isClosed == false
+    private fun vehicleControlGeneration(): Int =
+        if (config.transport == CarPlayTransport.WIRELESS) wirelessGeneration.get() else 0
     @Volatile private var requestedDashboardUrl: String? = airPlayConfig.cluster?.initialUrl
     private val clusterUiLock = Any()
     private var clusterUiStream: Pair<AirPlaySession, Int>? = null
@@ -324,8 +325,7 @@ class CarPlayController(
                 }
             }
             activeSession = session
-            if (replacement && !closed) BydNavigationOutputs.beginArcfoxHudSession(this@CarPlayController,
-                ::arcfoxHudSessionAlive)
+            if (replacement && !closed) vehicleAdapter.onSessionStarted(::vehicleSessionAlive, ::vehicleControlGeneration)
             val btPrefs = appContext.getSharedPreferences("xcertplay_airplay", android.content.Context.MODE_PRIVATE)
             if (btPrefs.getBoolean("bt_suspend_during_carplay", false)) {
                 // close() marks [closed], and a closing session marks itself before onSessionEnded
@@ -346,8 +346,8 @@ class CarPlayController(
             if (activeSession === session) {
                 activeSession = null
                 synchronized(albumReplayLock) { initialArtworkReplay = null }
-                BydNavigationOutputs.endNow(preserveTurnOverlay = !closed && config.transport == CarPlayTransport.WIRELESS,
-                    arcfoxOwner = this@CarPlayController)
+                BydNavigationOutputs.endNow(preserveTurnOverlay = !closed && config.transport == CarPlayTransport.WIRELESS)
+                vehicleAdapter.onSessionEnded()
                 BydBluetoothSuspend.resume(appContext, this@CarPlayController)
                 com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(false)
                 videoListener?.onVideoSessionEnded()
@@ -638,7 +638,8 @@ class CarPlayController(
         val teardownStarted = System.nanoTime()
         connectionDiagnostic("teardown begin transport=${config.transport}")
         videoGate?.close()
-        BydNavigationOutputs.endNow(arcfoxOwner = this)
+        BydNavigationOutputs.endNow()
+        vehicleAdapter.onSessionEnded()
         com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(false)
         BydNavigationOutputs.clearClusterStreamControl(::applyClusterUi)
         closeReceivers()
@@ -778,8 +779,9 @@ class CarPlayController(
     }
 
     // HUD (SOME/IP) and cluster (AMap broadcast) keep separate state so one failing cannot stall the other.
-    private fun onRouteFrame(frame: com.shilapi.xcertplay.iap2.wire.Iap2Frame, arcfoxCurrentControl: Boolean = true) {
-        BydNavigationOutputs.onFrame(frame, arcfoxOwner = this.takeIf { !closed && arcfoxCurrentControl })
+    private fun onRouteFrame(frame: com.shilapi.xcertplay.iap2.wire.Iap2Frame, currentControl: Boolean = true) {
+        BydNavigationOutputs.onFrame(frame)
+        vehicleAdapter.onNavigation(frame, !closed && currentControl)
         com.shilapi.xcertplay.glance.CarPlayGlance.onFrame(frame)
         synchronized(playbackStatus) {
             val previousPlaying = playbackStatus.playing
@@ -1483,8 +1485,8 @@ class CarPlayController(
                     "location=false vehicleStatus=false",
             )
             startedHotspot?.validateReady()
-            val hudControl = Any()
-            arcfoxHudControls.opened(hudControl, generation)
+            val vehicleControl = Any()
+            vehicleAdapter.onControlOpened(vehicleControl, generation)
             val result = try {
                 Iap2WirelessControlClient(
                     session = channel,
@@ -1503,7 +1505,7 @@ class CarPlayController(
                     },
                 )
             } finally {
-                arcfoxHudControls.ended(hudControl)
+                vehicleAdapter.onControlEnded(vehicleControl)
             }
             if (isStaleWirelessRun(generation)) {
                 return
@@ -1584,8 +1586,8 @@ class CarPlayController(
         return try {
             tunnelExecutor.execute {
                 try {
-                    val hudControl = Any()
-                    arcfoxHudControls.opened(hudControl, generation)
+                    val vehicleControl = Any()
+                    vehicleAdapter.onControlOpened(vehicleControl, generation)
                     val result = try {
                         Iap2WirelessControlClient(
                             session = channel,
@@ -1603,7 +1605,7 @@ class CarPlayController(
                             onProgress = { message -> debugLog("iAP tunnel $message") },
                         )
                     } finally {
-                        arcfoxHudControls.ended(hudControl)
+                        vehicleAdapter.onControlEnded(vehicleControl)
                     }
                     if (closed || generation != wirelessGeneration.get()) return@execute
                     when (result.terminal) {
@@ -2152,8 +2154,8 @@ class CarPlayController(
                     "location=${config.identification.locationInformationEnabled} " +
                     "vehicleStatus=${config.identification.vehicleStatusEnabled}",
             )
-            val hudControl = Any()
-            arcfoxHudControls.opened(hudControl, 0)
+            val vehicleControl = Any()
+            vehicleAdapter.onControlOpened(vehicleControl, 0)
             val result = try {
                 Iap2WiredControlClient(csm, Iap2MfiAuthenticationClient(mfi)).run(
                     identification = config.identification,
@@ -2166,7 +2168,7 @@ class CarPlayController(
                     onProgress = { message -> debugLog("wired $message") },
                 )
             } finally {
-                arcfoxHudControls.ended(hudControl)
+                vehicleAdapter.onControlEnded(vehicleControl)
             }
             onStatus(
                 when (result.terminal) {

@@ -1,5 +1,9 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.vehicleClusterAdapter
+
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterDisplay
+
 import android.app.AlertDialog
 import android.Manifest
 import android.content.ActivityNotFoundException
@@ -346,7 +350,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private var detectedCluster = ClusterActivityState.Snapshot(null, false)
     // Keep one surface per layer alive, including while its map card is hidden.
     private val clusterLayers = mutableMapOf<Boolean, ClusterMapPresentation>()
-    private var arcfoxClusterLinkSuspended = false
+    private val vehicleCluster by lazy { vehicleClusterAdapter(this) }
     private var clusterTurnGuidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance? = null
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
         runOnUiThread {
@@ -547,7 +551,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private val refreshTurnOverlay = object : Runnable {
         override fun run() {
             com.shilapi.xcertplay.hud.BydNavigationOutputs.refreshTurnOverlay()
-            updateArcfoxClusterCardLink()
+            updateVehicleClusterCardLink()
             mainHandler.postDelayed(this, 1_000L)
         }
     }
@@ -896,7 +900,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        arcfoxHardKeyReceiver = com.shilapi.xcertplay.orchestration.ArcfoxHardKeys.register(this) {
+        arcfoxHardKeyReceiver = com.shilapi.xcertplay.vehicle.VehicleAdapters.registerVoiceKey(this) {
             hasWindowFocus() && com.shilapi.xcertplay.hud.BydCarPlayCall.current() == null &&
                 controller?.requestSiri() == true
         }
@@ -1178,22 +1182,21 @@ class CarPlayHostActivity : ComponentActivity() {
             presentation.setTurnCardNightMode(effectiveNight)
             presentation.setTurnCardGuidance(if (overlay) clusterTurnGuidance else null)
         }
-        updateArcfoxClusterCardLink()
+        updateVehicleClusterCardLink()
     }
-    private fun updateArcfoxClusterCardLink() {
+    private fun updateVehicleClusterCardLink() {
         if (!ArcfoxClusterDisplay.isVehicle()) return
         val presentation = clusterPresentation
-        val shown = !arcfoxClusterLinkSuspended && !shuttingDown.get() && CarPlayBackgroundSession.active &&
+        val shown = !shuttingDown.get() && CarPlayBackgroundSession.active &&
             AirPlayPersistence.loadClusterMapEnabled(this) &&
             CarPlayClusterDisplay.usesCustomTurnCard(AirPlayPersistence.loadClusterContent(this)) &&
             clusterTurnGuidance != null && SCREEN_TYPE_ALT in activeScreenStreamTypes &&
             presentation?.isShowing == true && presentation.mapVisible && clusterSurface?.isValid == true
-        ArcfoxClusterLink.request(this, shown)
+        vehicleCluster.onTurnCardVisibilityChanged(shown)
     }
 
     private fun dismissClusterPresentation() {
-        ArcfoxWheelZoom.release(this)
-        ArcfoxClusterLink.release(this)
+        vehicleCluster.release()
         ClusterActivityOutput.stop(this)
         val presentations = (clusterLayers.values + listOfNotNull(clusterPresentation)).distinct()
         clusterLayers.clear()
@@ -1501,8 +1504,8 @@ class CarPlayHostActivity : ComponentActivity() {
             presentation.outputSurface === surface
         val direct = surface != null && adbClusterConfigured && ClusterActivityOutput.hasConfirmedRoute()
         controller?.setDashboardMapOutputVisible(presented || direct)
-        ArcfoxWheelZoom.update(this, controller, presented || direct)
-        updateArcfoxClusterCardLink()
+        vehicleCluster.onClusterVisibilityChanged(controller, presented || direct)
+        updateVehicleClusterCardLink()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -1527,7 +1530,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        ArcfoxWheelZoom.release(this)
+        vehicleCluster.release()
         resetSidePanel()
         releaseSidePanelEffects()
         hostAppearanceResumed = false
@@ -4683,7 +4686,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     }
                     activeAirPlaySession = session
                     CarPlayBackgroundSession.active = true
-                    arcfoxClusterLinkSuspended = false
+                    vehicleCluster.onSessionStarted()
                     callPopupSessionReady = true
                     updateCallPopupGuard()
                     reconnectAttempts = 0
@@ -4726,8 +4729,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     startupRetryBudget.disconnected()
                     activeAirPlaySession = null
                     CarPlayBackgroundSession.active = false
-                    arcfoxClusterLinkSuspended = true
-                    ArcfoxClusterLink.release(this@CarPlayHostActivity)
+                    vehicleCluster.onSessionEnded()
                     callPopupSessionReady = false
                     updateCallPopupGuard()
                     if (menuOpen) {
@@ -4735,7 +4737,7 @@ class CarPlayHostActivity : ComponentActivity() {
                         return@runOnUiThread
                     }
                     activeScreenStreamTypes.clear()
-                    updateArcfoxClusterCardLink()
+                    updateVehicleClusterCardLink()
                     ClusterActivityOutput.setStreamActive(false)
                     setConnectionStage(getString(R.string.carplay_session_ended_reconnecting))
                     appendLog("AirPlay session ended; reconnecting from scratch")
@@ -4749,14 +4751,13 @@ class CarPlayHostActivity : ComponentActivity() {
                     callPopupSessionReady = false
                     updateCallPopupGuard()
                     startupRetryBudget.disconnected()
-                    arcfoxClusterLinkSuspended = true
-                    ArcfoxClusterLink.release(this@CarPlayHostActivity)
+                    vehicleCluster.onSessionEnded()
                     if (menuOpen) {
                         recoveryPendingAfterMenu = true
                         return@runOnUiThread
                     }
                     activeScreenStreamTypes.clear()
-                    updateArcfoxClusterCardLink()
+                    updateVehicleClusterCardLink()
                     ClusterActivityOutput.setStreamActive(false)
                     setConnectionStage(getString(R.string.transport_error_reconnecting))
                     appendLog("CarPlay transport error: $message; reconnecting from scratch")
@@ -5351,7 +5352,7 @@ class CarPlayHostActivity : ComponentActivity() {
         startupRetryButton?.visibility = View.GONE
         appendLog(reason)
         activeScreenStreamTypes.clear()
-        updateArcfoxClusterCardLink()
+        updateVehicleClusterCardLink()
         ClusterActivityOutput.setStreamActive(false)
         setConnectionStage(reason)
         Log.i(TAG, "$reason; rebuilding stack at ${size.width}x${size.height}")
@@ -5756,7 +5757,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 clusterPresentation?.setStreamActive(active)
                 ClusterActivityOutput.setStreamActive(active)
                 MapMirrors.setStreamActive(active)
-                updateArcfoxClusterCardLink()
+                updateVehicleClusterCardLink()
                 if (active) {
                     mainHandler.removeCallbacks(hideIdleCenterMap)
                     if (!CenterMapOverlay.shown) CenterMapOverlay.scheduleShow()

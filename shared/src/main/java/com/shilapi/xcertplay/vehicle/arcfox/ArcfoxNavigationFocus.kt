@@ -1,11 +1,13 @@
-package com.shilapi.xcertplay.media
+package com.shilapi.xcertplay.vehicle.arcfox
+
+import com.shilapi.xcertplay.vehicle.VehiclePromptFocus
 
 /** One prompt owns focus only while PCM is arriving or still queued for playback. */
 internal class ArcfoxNavigationFocus(
     private val request: () -> Boolean,
     private val abandon: () -> Unit,
     private val nowMillis: () -> Long = { System.nanoTime() / 1_000_000L },
-) {
+) : VehiclePromptFocus {
     private var held = false
     private var interrupted = false
     private var closed = false
@@ -13,7 +15,7 @@ internal class ArcfoxNavigationFocus(
     private var lastAttempt = Long.MIN_VALUE
 
     @Synchronized
-    fun pcm(priorityVoice: Boolean) {
+    override fun pcm(priorityVoice: Boolean) {
         if (closed) return
         lastPcm = nowMillis()
         if (priorityVoice) {
@@ -27,7 +29,7 @@ internal class ArcfoxNavigationFocus(
     }
 
     @Synchronized
-    fun maintain(pending: Boolean, priorityVoice: Boolean) {
+    override fun maintain(pending: Boolean, priorityVoice: Boolean) {
         if (closed) return
         if (priorityVoice) {
             interrupted = true
@@ -48,7 +50,7 @@ internal class ArcfoxNavigationFocus(
     }
 
     @Synchronized
-    fun close() {
+    override fun close() {
         closed = true
         release()
     }

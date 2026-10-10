@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.Switch
 import com.shilapi.xcertplay.airplay.*
 import com.shilapi.xcertplay.host.R
+import com.shilapi.xcertplay.vehicle.VehicleClusterAdapter
 import com.shilapi.xcertplay.media.AndroidMediaSink
 import com.shilapi.xcertplay.media.CarPlayNowPlaying
 import com.shilapi.xcertplay.media.CarPlayVideoLayout
@@ -96,6 +97,11 @@ class CarPlayHostDisplaySizeTest {
     }
 
     @Test fun transportErrorInTheConnectionMenuDoesNotReopenTheInstrumentSlot() {
+        var vehicleSessionEnded = false
+        val adapter = object : VehicleClusterAdapter {
+            override fun onSessionEnded() { vehicleSessionEnded = true }
+        }
+        setField("vehicleCluster\$delegate", lazyOf(adapter))
         startSession()
         setField("menuOpen", true)
         @Suppress("UNCHECKED_CAST")
@@ -108,7 +114,7 @@ class CarPlayHostDisplaySizeTest {
         shadowOf(Looper.getMainLooper()).idle()
         assertTrue(streams.contains(111)) // Original menu recovery keeps this state until reconnect.
         assertEquals(true, getField("recoveryPendingAfterMenu"))
-        assertEquals(true, getField("arcfoxClusterLinkSuspended"))
+        assertTrue(vehicleSessionEnded) // The OEM adapter must suspend even while the menu retains streams.
     }
 
     @Test fun surroundViewOpenAndCloseKeepsTheNegotiatedCanvas() {

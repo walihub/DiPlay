@@ -1,4 +1,6 @@
-package com.shilapi.xcertplay.hud
+package com.shilapi.xcertplay.vehicle.arcfox
+
+import com.shilapi.xcertplay.hud.*
 
 /** Tokens invalidate queued updates/clears when a controller ends or another one takes over. */
 internal class ArcfoxHudSessionGate {

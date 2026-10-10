@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay.hud
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxPhoneSync
+
 import android.app.Application
 import android.os.Build
 import org.json.JSONObject

@@ -1,5 +1,8 @@
 package com.shilapi.xcertplay.hud
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxHudSync
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxHudWriter
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertArrayEquals
 import org.junit.Test

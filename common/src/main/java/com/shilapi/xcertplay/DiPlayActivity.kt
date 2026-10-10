@@ -2,6 +2,9 @@
 // UI copy and visual language adapted from DiAuto. See docs/THIRD_PARTY_NOTICES.md.
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterDisplay
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterLink
+
 import android.Manifest
 import android.app.AlertDialog
 import android.app.Dialog
@@ -4948,7 +4951,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                     }
                     appendLine()
                     appendLine("--- Arcfox HUD diagnostics ---")
-                    appendLine(BydNavigationOutputs.arcfoxHudDiagnosticReport())
+                    appendLine(com.shilapi.xcertplay.vehicle.VehicleAdapters.diagnosticReport())
                     appendLine(ArcfoxClusterLink.diagnosticReport())
                     appendLine()
                     appendLine("--- Standalone HUD compatibility ---")

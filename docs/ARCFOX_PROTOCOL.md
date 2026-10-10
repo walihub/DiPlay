@@ -485,3 +485,30 @@ DiPlay 恢复逻辑改为优先反射 AudioManager.getService()，读取真实�
 ArcfoxClusterDisplay 固定安全区域、ArcfoxWheelZoom/Hidl、ArcfoxHudSync、本次 compileOnly HIDL stubs 无文本冲突。上游 MFI 核心目录、CarPlayClusterDisplay 和 DiLink4ClusterDisplay 没有该区间修改，但 iAP2 identification 重试、USB/NCM、Wi-Fi 扫描暂停及 app-audio 麦克风流程有更新。不能把无文本冲突视为实车兼容证明；解决冲突后必须在合并版本重跑完整 CI。新官方自动更新入口指向上游 release，系统签名适配版与官方包的签名不同，应核对该入口在 fork 中的行为。
 
 结论：可以合入，经上述冲突处理后有明确保留双方逻辑的路径；不能直接无冲突合并。此预检未合并、未声称合并版本构建通过。
+
+### 2026-10-11：实际合并 0.2.17 与极狐适配层
+
+工作分支 `codex/arcfox-0.2.17-adapter`。先用 `9eb08fd1` 保存当前适配，随后以 `192a7a3f` 合入官方 tag `v0.2.17`（`4314bbe133599b21f40d23d3bf3de3f0d45353b4`）。上述“未合并”是此前预检时的状态，本节记录实际完成的合并。
+
+冲突处理保留上游电话弹窗 guard、专辑封面恢复与断开后的 artwork replay 清理，以及极狐卡片生命周期和音乐同步。上游的连接、认证、USB/NCM、Wi-Fi 与麦克风更新一并保留；本次不另改官方 MFI 或 identification 实现。
+
+极狐实现集中到两个同名包目录，继续编入原 DiPlay APK，不产生独立桥接 APK：
+
+- `common/src/main/java/com/shilapi/xcertplay/vehicle/arcfox/`：仪表安全区域/卡片配置、原车卡片联动、音乐元数据/封面同步、媒体静音恢复、方向盘 HIDL 及缩放目标生命周期。
+- `shared/src/main/java/com/shilapi/xcertplay/vehicle/arcfox/`：HUD 协议写入与保活、HUD 会话/控制通道代次、电话状态、语音长按、导航焦点请求/释放。
+- `shared/.../vehicle/VehicleAdapters.kt`：车型识别、会话适配选择、电话及语音键入口。非 AAOP_COCKPIT 固件的会话适配为空实现。
+- `shared/.../vehicle/VehicleAudioPolicy.kt`：音频策略入口。非极狐保留原语音通道；极狐语音通道 17、仅导航且实际选择通道 11 时启用极狐导航焦点。焦点请求仍使用实际 AudioTrack attributes，旧焦点回调继续通过代次拒绝。
+- `common/.../vehicle/VehicleClusterAdapter.kt`：宿主会话开始/结束、物理仪表可见性和卡片可见性入口；极狐实现拥有自己的卡片挂起状态。
+- `common/.../vehicle/VehicleMediaAdapter.kt`：NowPlaying、封面、结束、开始播放时的媒体恢复入口，Android MediaSession 的上游处理继续保留。
+
+`CarPlayController` 只向适配器投递会话、控制通道与导航事件。极狐 HUD 不再通过 `BydNavigationOutputs` 的附加参数转发，该比亚迪类恢复为 0.2.17 的原有实现。`CarPlayHostActivity` 保留显示选择/配置调用，并向适配器通知实际地图/卡片可见性；`AndroidMediaSink` 保留 PCM 生命周期通知，不包含极狐焦点请求的具体协议实现。设置和持久化仍调用车型配置，未新增设置，也未改设置界面布局。
+
+保持本轮前已经选择的行为：全屏仪表视频 1920×720，safeArea=500/500/80/30，920×610；导航有效时 HUD 每 5 秒保活；方向盘缩放只发送 CarPlay 地图相对缩放命令。重构没有追加车标平移或视频裁剪。
+
+后续升级应合并上游 tag，再复核上述事件入口及默认车型行为，运行 AGENTS.md 完整 CI，使用对应官方发布包的认证资源并重新系统签名。这种封装减少核心文件中的协议和状态代码，但不能保证以后完全没有合并冲突。官方更新功能沿用上游地址和显式安装操作；官方 APK 使用不同签名、也不含此极狐适配，适配版应从本分支合并重建，不能依靠官方 APK 覆盖升级。
+
+官方 0.2.17 APK 已按发布的 SHA256SUMS 校验；其离线认证资源与官方 0.2.15 一致。认证资源仅在临时目录参与 release 构建，不提交到源码。
+
+验证：AGENTS.md 的完整 CI 通过（5 分 4 秒）；shared 1307、common 1113、home 4 项，共 2424 项，跳过 1 项，无失败。mobile/home/maphost 的 lintDebug 和 assembleDebug 全部通过。新增回归覆盖非极狐车型空适配/语音键不注册、极狐音频条件选择；断连菜单回归改为验证生命周期事件送达适配器。公开源码凭据检查与 diff --check 通过。实体车机目前未连接，以上结果不能代替实车仪表、HUD、方向盘和音频测试。
+
+发布构建：`:mobile:verifyStandaloneAuthentication :mobile:assembleRelease` 通过（2 分 14 秒）。APK 为 `build/arcfox-release/DiPlay-0.2.17-Arcfox-Adapter-system.apk`，versionName=0.2.17、versionCode=36，SHA-256 `2f7bd394b8c16548440c33bffe84484080821dd9e725b6abcefcfdc222f9e873`。系统签名证书 SHA-256 仍为 `c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8`，apksigner 验证通过。认证资源与经官方 SHA256SUMS 核验的 0.2.17 发布包字节一致；DEX 核验确认极狐适配/HIDL 回调类存在，四个 android.os 编译桩类定义未打入 APK。本轮没有安装、修改原车 APK 或推送远程。

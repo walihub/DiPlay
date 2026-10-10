@@ -1,5 +1,7 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterDisplay
+
 import android.content.Context
 import android.os.Build
 import com.shilapi.xcertplay.airplay.AirPlayDisplaySettings

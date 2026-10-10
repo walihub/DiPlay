@@ -1,5 +1,8 @@
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.VehicleMediaAdapter
+
+
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -116,7 +119,7 @@ internal object CarPlayMediaKeys {
                 iphonePlaying = playing
                 if (playing) regainFocusLocked()
                 if (startedPlaying) {
-                    recoverArcfoxMediaRouteLocked()
+                    recoverVehicleMediaRouteLocked()
                 }
             }
         }
@@ -147,7 +150,7 @@ internal object CarPlayMediaKeys {
                 if (nowPlaying.elapsedMillis != update.elapsedMillis) elapsedUpdatedAt = SystemClock.elapsedRealtime()
                 val metadataChanged = metadataChanged(nowPlaying, update) || artwork !== previousArtwork
                 nowPlaying = update
-                appContext?.let { ArcfoxMusicSync.update(it, update) }
+                appContext?.let { VehicleMediaAdapter.onNowPlaying(it, update) }
                 updateInitialAlbumRecovery(expected)
                 // The iPhone repeats NowPlayingUpdate about twice a second for the position alone.
                 // Republishing the metadata each time sent a copy of the artwork through system_server
@@ -162,7 +165,7 @@ internal object CarPlayMediaKeys {
     @Synchronized
     private fun onArtworkChanged(expected: CarPlayController, id: Int, bytes: ByteArray) {
         if (controller !== expected) return
-        appContext?.let { ArcfoxMusicSync.artwork(it, id, bytes, nowPlaying) }
+        appContext?.let { VehicleMediaAdapter.onArtwork(it, id, bytes, nowPlaying) }
         artworkOwner?.let { artworkQueue.submit(it, id, bytes) }
     }
 
@@ -295,7 +298,7 @@ internal object CarPlayMediaKeys {
         focusRequest = request
         focusHeld = granted
         if (granted) forwardGrantedFocusLocked()
-        recoverArcfoxMediaRouteLocked()
+        recoverVehicleMediaRouteLocked()
         session = MediaSession(context, "DiPlay CarPlay").apply {
             setCallback(callback, mainHandler)
             setMetadata(androidMetadata(nowPlaying, shownArtworkLocked()))
@@ -304,16 +307,10 @@ internal object CarPlayMediaKeys {
         Log.i(TAG, "media keys active focusGranted=$granted")
     }
 
-    private fun recoverArcfoxMediaRouteLocked() {
+    private fun recoverVehicleMediaRouteLocked() {
         val context = appContext ?: return
-        val audio = context.getSystemService(AudioManager::class.java) ?: return
-        runCatching {
-            if (ArcfoxMediaRouteRecovery.recover(android.os.Build.FINGERPRINT,
-                    AirPlayPersistence.loadMediaAudioChannel(context), focusHeld, audio,
-                    packageName = context.packageName, report = { Log.i(TAG, it) })) {
-                Log.i(TAG, "Arcfox media route resumed stream=3")
-            }
-        }.onFailure { Log.w(TAG, "Arcfox media route resume failed", it) }
+        VehicleMediaAdapter.onPlaybackStarted(context,
+            AirPlayPersistence.loadMediaAudioChannel(context), focusHeld)
     }
 
     private fun forwardGrantedFocusLocked() {
@@ -348,7 +345,7 @@ internal object CarPlayMediaKeys {
     }
 
     private fun releaseLocked() {
-        ArcfoxMusicSync.clear(appContext)
+        VehicleMediaAdapter.onSessionEnded(appContext)
         focusOwner = null
         controller?.let(com.shilapi.xcertplay.media.AmbientMusicController::releasePlaybackOwner)
         artworkOwner = null
