@@ -820,15 +820,15 @@
     <string name="settings_background_update_checks">Check for updates in the background</string>
     <string name="settings_background_update_checks_description">Once a day, DiPlay checks GitHub for a new version and shows it on the home screen. It never downloads without your tap.</string>
     <string name="setup_guide">Setup guide</string>
-    <string name="setup_guide_description">Find your DiLink version, choose a connection and turn on the features that suit your car.</string>
+    <string name="setup_guide_description">Identify your head unit, choose a connection and enable features for your car.</string>
     <string name="setup_step_of">STEP %1$d OF %2$d</string>
     <string name="setup_skip">Skip setup</string>
     <string name="setup_next">Next</string>
     <string name="setup_car_title">Your car</string>
     <string name="setup_car_detected">Found %1$s in the system version. Change it if that’s wrong.</string>
     <string name="setup_car_likely">This looks like %1$s. Please confirm.</string>
-    <string name="setup_car_unknown">DiPlay couldn’t read the DiLink version. Choose it below, or keep Not sure.</string>
-    <string name="setup_car_choose">DiLink version</string>
+    <string name="setup_car_unknown">DiPlay could not identify the head unit version. Choose below, or keep Not sure.</string>
+    <string name="setup_car_choose">Head unit version</string>
     <string name="setup_car_evidence">System version: %1$s</string>
     <string name="dilink_3">DiLink 3</string>
     <string name="dilink_4">DiLink 4</string>
@@ -867,4 +867,9 @@
     <string name="turn_card_theme_night">Always night</string>
     <string name="settings_ambient_album">Follow album cover</string>
     <string name="settings_ambient_album_description">Use the cover’s color or nearby available car colors. Grey, black or missing covers use all 31 colors; mostly white covers can use white or cold white.</string>
+    <string name="settings_vehicle_profile_reconnect">Vehicle configuration applies at the next CarPlay connection.</string>
+    <string name="settings_arcfox_profile_summary">ARCFOX T uses the instrument map and safety region, navigation card, HUD guidance, wheel zoom, music, calls, voice keys and ARCFOX car icon. Audio keeps your selected channels.</string>
+    <string name="settings_arcfox_safe_area_hint">Default region: 920×610, with 500 left/right, 80 top and 30 bottom. Drag the green edges; save for the next CarPlay connection. Reset restores this region.</string>
+    <string name="settings_arcfox_safe_area_live_hint">Adjust the green edges in this preview. Save and reconnect CarPlay to apply the region.</string>
+    <string name="settings_arcfox_t">ARCFOX T</string>
 </resources>

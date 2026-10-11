@@ -779,15 +779,15 @@
     <string name="settings_background_update_checks">在后台检查更新</string>
     <string name="settings_background_update_checks_description">DiPlay 每天会在 GitHub 上检查一次新版本，并显示在主屏幕上。未经你点击，绝不会下载。</string>
     <string name="setup_guide">设置向导</string>
-    <string name="setup_guide_description">识别 DiLink 版本，选择连接方式，并开启适合你车辆的功能。</string>
+    <string name="setup_guide_description">识别车机版本，选择连接方式，并开启适合你车辆的功能。</string>
     <string name="setup_step_of">第 %1$d 步，共 %2$d 步</string>
     <string name="setup_skip">跳过设置</string>
     <string name="setup_next">下一步</string>
     <string name="setup_car_title">你的车辆</string>
     <string name="setup_car_detected">已从系统版本中识别为 %1$s。如有误请更改。</string>
     <string name="setup_car_likely">看起来是 %1$s，请确认。</string>
-    <string name="setup_car_unknown">DiPlay 无法读取 DiLink 版本。请在下方选择，或保留“不确定”。</string>
-    <string name="setup_car_choose">DiLink 版本</string>
+    <string name="setup_car_unknown">DiPlay 无法识别车机版本。请在下方选择，或保留“不确定”。</string>
+    <string name="setup_car_choose">车机版本</string>
     <string name="setup_car_evidence">系统版本：%1$s</string>
     <string name="dilink_3">DiLink 3</string>
     <string name="dilink_4">DiLink 4</string>
@@ -826,4 +826,9 @@
     <string name="turn_card_theme_night">始终夜间</string>
     <string name="settings_ambient_album">跟随专辑封面</string>
     <string name="settings_ambient_album_description">按封面取色并近似匹配原车可用色号。灰黑或无封面时使用全部31色；大面积白色封面可使用白色或冷白。</string>
+    <string name="settings_vehicle_profile_reconnect">车机配置在下次 CarPlay 连接时生效。</string>
+    <string name="settings_arcfox_profile_summary">极狐 T 使用仪表地图与安全区域、导航卡片联动、HUD 导航、方向盘缩放、音乐／电话／语音同步和极狐图标。音频保留你选择的通道。</string>
+    <string name="settings_arcfox_safe_area_hint">默认区域 920×610：左右各留 500、上方 80、下方 30。拖动绿色边界，保存后在下次 CarPlay 连接时生效；重置恢复该默认区域。</string>
+    <string name="settings_arcfox_safe_area_live_hint">在预览中拖动绿色边界调整区域，保存并重新连接 CarPlay 后生效。</string>
+    <string name="settings_arcfox_t">极狐 T</string>
 </resources>

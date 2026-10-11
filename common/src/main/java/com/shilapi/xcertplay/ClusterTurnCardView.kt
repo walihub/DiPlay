@@ -65,7 +65,7 @@ internal class ClusterTurnCardView(context: Context) : View(context) {
     init { applyPalette() }
 
     fun setLayout(xPercent: Int, yPercent: Int, sizePercent: Int) {
-        arcfoxSmallCard = ArcfoxClusterDisplay.isVehicle()
+        arcfoxSmallCard = ArcfoxClusterDisplay.isVehicle(context)
         this.xPercent = xPercent
         this.yPercent = yPercent
         this.sizePercent = sizePercent

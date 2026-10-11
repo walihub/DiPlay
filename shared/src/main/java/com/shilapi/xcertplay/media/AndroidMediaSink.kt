@@ -222,6 +222,8 @@ class AndroidMediaSink(
     // Each downlink publishes its own reference; a mic must match that stream and sample rate.
     private val callEchoReferences = ConcurrentHashMap<AudioStreamId, EchoReference>()
     private val appContext = context?.applicationContext
+    private val vehicleFingerprint = if (com.shilapi.xcertplay.vehicle.VehicleProfiles.isArcfox(appContext))
+        Build.FINGERPRINT.orEmpty() else ""
     private val ambientSinkToken = AmbientMusicController.openSink(appContext)
     private val audioManager = appContext?.getSystemService(AudioManager::class.java)
     private val audioFocusCoordinator = AudioFocusCoordinator(
@@ -229,7 +231,7 @@ class AndroidMediaSink(
         audioFocusEnabled,
         audioFocusAutoYield,
         onAudioDiagnostic,
-        vehicleAssistantFocus = com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox(Build.FINGERPRINT.orEmpty()),
+        vehicleAssistantFocus = com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox(vehicleFingerprint),
     )
 
     /** The media-key session may own Android's current focus request for this same sink. */
@@ -686,7 +688,7 @@ class AndroidMediaSink(
             echoReference = echoReference,
             voiceFilter = callVoiceFilter && format.audioType == TELEPHONY_AUDIO_TYPE,
         ).also {
-            it.configureVehicleAudio(audioManager, Build.FINGERPRINT.orEmpty(), navigationChannel)
+            it.configureVehicleAudio(audioManager, vehicleFingerprint, navigationChannel)
             audioRenderers[id] = it
         }
     }
@@ -1669,12 +1671,14 @@ private class AudioRenderer(
     private var rebufferCount = 0
     private var diagnosticStage = "starting"
     private var vehicleAssistantStream = 0
+    private var vehicleFingerprint = ""
     private var lastDecoderOutputMetadata: String? = null
     private var decoderOutputReports = 0
     private val thread = Thread(::run, "carplay-audio").apply { isDaemon = true }
 
     fun configureVehicleAudio(manager: AudioManager?, fingerprint: String, navigationChannel: Int) {
         check(!started)
+        vehicleFingerprint = fingerprint
         navigationFocusManager = if (VehicleAudioPolicy.needsNavigationFocus(fingerprint, navigationChannel)) manager else null
         vehicleAssistantStream = VehicleAudioPolicy.assistantLegacyStream(fingerprint)
     }
@@ -1864,7 +1868,7 @@ private class AudioRenderer(
         }
         diagnosticStage = "track-attributes"
         trackAttributes = audioTrackAttributesForFocus(built, attributes)
-        vehicleNavigationFocus = VehicleAudioPolicy.navigationFocus(Build.FINGERPRINT,
+        vehicleNavigationFocus = VehicleAudioPolicy.navigationFocus(vehicleFingerprint,
             mappedChannel == AudioChannel.NAVIGATION, actualLegacyStreamType,
             navigationFocusManager, trackAttributes ?: attributes, report)
         diagnosticStage = "track-capacity"

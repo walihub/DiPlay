@@ -1867,17 +1867,20 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         // Cluster video does not require a BYD navigation broadcast receiver.
         filteredSection(content, SettingsSection.CLUSTER_MAP,
             getString(R.string.carplay_map_on_instrument_cluster_experimental), R.drawable.ic_dp_dashboard) { card ->
-            reconnectingToggle(card, getString(R.string.adb_cluster_activity_mode),
-                getString(R.string.adb_cluster_activity_description), AirPlayPersistence.loadAdbClusterEnabled(this)) {
-                AirPlayPersistence.saveAdbClusterEnabled(this, it)
-                ClusterActivityOutput.stopForSettings()
-                render()
-            }
-            reconnectingToggle(card, getString(R.string.platform21_cluster_mode),
-                getString(R.string.platform21_cluster_description), AirPlayPersistence.loadLegacyClusterEnabled(this)) {
-                AirPlayPersistence.saveLegacyClusterEnabled(this, it)
-                ClusterActivityOutput.stopForSettings()
-                render()
+            val arcfoxProfile = ArcfoxClusterDisplay.isVehicle(this)
+            if (!arcfoxProfile) {
+                reconnectingToggle(card, getString(R.string.adb_cluster_activity_mode),
+                    getString(R.string.adb_cluster_activity_description), AirPlayPersistence.loadAdbClusterEnabled(this)) {
+                    AirPlayPersistence.saveAdbClusterEnabled(this, it)
+                    ClusterActivityOutput.stopForSettings()
+                    render()
+                }
+                reconnectingToggle(card, getString(R.string.platform21_cluster_mode),
+                    getString(R.string.platform21_cluster_description), AirPlayPersistence.loadLegacyClusterEnabled(this)) {
+                    AirPlayPersistence.saveLegacyClusterEnabled(this, it)
+                    ClusterActivityOutput.stopForSettings()
+                    render()
+                }
             }
             val adbCluster = AdbClusterRouter.enabled(this)
             if (adbCluster) {
@@ -1900,8 +1903,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 DiLink4ClusterDisplay.matches(clusterDisplay.name, clusterSize.x, clusterSize.y))
             val clusterMapEnabled = AirPlayPersistence.loadClusterMapEnabled(this)
             reconnectingToggle(card, getString(R.string.carplay_map_on_instrument_cluster_experimental),
-                if (clusterDisplay != null && clusterSize != null && ArcfoxClusterDisplay.matches(
-                        android.os.Build.FINGERPRINT, clusterDisplay.name, clusterSize.x, clusterSize.y, clusterDisplay.displayId))
+                if (arcfoxProfile)
                     getString(R.string.arcfox_cluster_map_description)
                 else if (clusterDisplay != null || adbCluster) getString(R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c)
                 else getString(R.string.shows_the_iphone_s_cluster_map_virtual_stream_description),
@@ -1909,6 +1911,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 AirPlayPersistence.saveClusterMapEnabled(this, it)
                 render()
             }
+            if (arcfoxProfile) clusterSafeAreaControls(card)
             if (clusterMapEnabled) {
                 toggle(card, getString(R.string.center_map_card),
                     if (clusterDisplay != null || adbCluster) getString(R.string.center_map_card_description)
@@ -1943,8 +1946,8 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                         card.addView(button(getString(R.string.btn_auto_apply_permissions), false) { autoApplyPermissions() }, matchButton(8, 54))
                     }
                 }
-                if (clusterDisplay != null || adbCluster) {
-                    if (DiLink51ClusterLayout.supported() && !adbCluster) {
+                if (clusterDisplay != null || adbCluster || arcfoxProfile) {
+                    if (!arcfoxProfile && DiLink51ClusterLayout.supported() && !adbCluster) {
                         val automatic = DiLink51ClusterLayout.automatic(this)
                         toggle(card, getString(R.string.follow_instrument_theme_and_map_card),
                             getString(R.string.show_the_side_map_only_when_its_card_is_open_and_switch_to), automatic) {
@@ -1970,7 +1973,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                             markReconnectNeeded()
                         }
                     } else {
-                        if (diLink4) clusterSafeAreaControls(card)
+                        if (diLink4 && !arcfoxProfile) clusterSafeAreaControls(card)
                         val sizes = CarPlayClusterDisplay.scalePresets
                         val contents = CarPlayClusterDisplay.Content.entries
                         val content = AirPlayPersistence.loadClusterContent(this)
@@ -2006,8 +2009,8 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                             }
                         }
                         if (customCard) {
-                            if (ArcfoxClusterDisplay.isVehicle()) card.addView(label(getString(R.string.arcfox_card_link_description), 14, MUTED))
-                            if (!ArcfoxClusterDisplay.isVehicle()) {
+                            if (ArcfoxClusterDisplay.isVehicle(this)) card.addView(label(getString(R.string.arcfox_card_link_description), 14, MUTED))
+                            if (!ArcfoxClusterDisplay.isVehicle(this)) {
                                 card.addView(overlaySliderRow(
                                     getString(R.string.turn_card_overlay_size),
                                     ClusterTurnCardOverlay.sizePercents,
@@ -2021,7 +2024,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                                 AirPlayPersistence.loadClusterTurnCardOpacityPercent(this),
                             ) { it -> getString(R.string.turn_card_overlay_opacity_option, it) }
                                 .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOpacityPercent(this, v) } })
-                            if (!ArcfoxClusterDisplay.isVehicle()) {
+                            if (!ArcfoxClusterDisplay.isVehicle(this)) {
                                 card.addView(overlaySliderRow(
                                     getString(R.string.turn_card_overlay_horizontal),
                                     ClusterTurnCardOverlay.xPercents,
@@ -2029,7 +2032,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                                 ) { it -> overlayOffsetLabel(it, getString(R.string.marker_left), getString(R.string.marker_right), 50) }
                                     .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOverlayXPercent(this, v) } })
                             }
-                            if (!ArcfoxClusterDisplay.isVehicle()) {
+                            if (!ArcfoxClusterDisplay.isVehicle(this)) {
                                 card.addView(overlaySliderRow(
                                     getString(R.string.turn_card_overlay_vertical),
                                     ClusterTurnCardOverlay.yPercents,
@@ -2037,7 +2040,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                                 ) { it -> overlayOffsetLabel(it, getString(R.string.marker_up), getString(R.string.marker_down), 40) }
                                     .also { it.onSave = { v -> AirPlayPersistence.saveClusterTurnCardOverlayYPercent(this, v) } })
                             }
-                            if (!ArcfoxClusterDisplay.isVehicle()) {
+                            if (!ArcfoxClusterDisplay.isVehicle(this)) {
                                 card.addView(button(getString(R.string.reset_turn_card_overlay), false) {
                                     AirPlayPersistence.saveClusterTurnCardOverlayXPercent(this, ClusterTurnCardOverlay.DEFAULT_X_PERCENT)
                                     AirPlayPersistence.saveClusterTurnCardOverlayYPercent(this, ClusterTurnCardOverlay.DEFAULT_Y_PERCENT)
@@ -2047,14 +2050,14 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                             }
                         }
                         val turnCard = officialCardOnly
-                        if (!diLink4) {
+                        if (!diLink4 && !arcfoxProfile) {
                             choice(card, getString(if (turnCard) R.string.turn_card_size else R.string.cluster_map_size),
                                 listOf(getString(R.string.cluster_size_standard), getString(R.string.cluster_size_larger), getString(R.string.cluster_size_largest), getString(R.string.cluster_size_smallest)),
                                 sizes.indexOf(AirPlayPersistence.loadClusterMapScalePercent(this)).coerceAtLeast(0)) {
                                 AirPlayPersistence.saveClusterMapScalePercent(this, sizes[it])
                             }
                         }
-                        if (!diLink4 || AirPlayPersistence.loadClusterSafeAreaRect(this) == null) {
+                        if (!arcfoxProfile && (!diLink4 || AirPlayPersistence.loadClusterSafeAreaRect(this) == null)) {
                             card.addView(overlaySliderRow(
                                 getString(if (turnCard) R.string.turn_card_horizontal else R.string.car_marker_horizontal),
                                 CarPlayClusterDisplay.markerXPercents,
@@ -2079,19 +2082,19 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                                 getString(R.string.cluster_small_window_off),
                                 getString(R.string.cluster_small_window_on),
                                 getString(R.string.cluster_small_window_auto),
-                            ).let { if (ArcfoxClusterDisplay.isVehicle()) it.take(2) else it },
+                            ).let { if (ArcfoxClusterDisplay.isVehicle(this)) it.take(2) else it },
                                 AirPlayPersistence.loadClusterSmallWindowMode(this).let {
-                                    if (ArcfoxClusterDisplay.isVehicle() && it == 2) 0 else it
+                                    if (ArcfoxClusterDisplay.isVehicle(this) && it == 2) 0 else it
                                 }) {
                                 AirPlayPersistence.saveClusterSmallWindowMode(this, it)
                                 render()
                                 markReconnectNeeded()
                             }
-                            card.addView(label(getString(if (ArcfoxClusterDisplay.isVehicle()) R.string.arcfox_small_window_description
+                            card.addView(label(getString(if (ArcfoxClusterDisplay.isVehicle(this)) R.string.arcfox_small_window_description
                                 else R.string.cluster_small_window_marker_description), 14, MUTED).apply {
                                 setPadding(0, dp(8), 0, dp(6))
                             })
-                            if (!ArcfoxClusterDisplay.isVehicle() && AirPlayPersistence.loadClusterSmallWindowMode(this) == 2) {
+                            if (!ArcfoxClusterDisplay.isVehicle(this) && AirPlayPersistence.loadClusterSmallWindowMode(this) == 2) {
                                 val adbMode = BydNavigationOutputs.clusterNaviMode()
                                 if (adbMode != null) {
                                     card.addView(label(getString(R.string.cluster_small_window_adb_ok, adbMode.label), 14, MUTED)
@@ -2136,7 +2139,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                                     val smallWindowPlacementPreview = ClusterCardPlacementPreview(this, ClusterCardPlacementPreview.Mode.SMALL).also {
                                         card.addView(it, LinearLayout.LayoutParams(-1, dp(240)))
                                     }
-                                    if (!ArcfoxClusterDisplay.isVehicle()) {
+                                    if (!ArcfoxClusterDisplay.isVehicle(this)) {
                                         card.addView(overlaySliderRow(
                                             getString(R.string.cluster_small_window_card_size),
                                             ClusterTurnCardOverlay.sizePercents,
@@ -2626,6 +2629,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         DiLinkGeneration.DILINK_3 -> R.string.dilink_3
         DiLinkGeneration.DILINK_4 -> R.string.dilink_4
         DiLinkGeneration.DILINK_5 -> R.string.dilink_5
+        DiLinkGeneration.ARCFOX_T -> R.string.settings_arcfox_t
         DiLinkGeneration.UNKNOWN -> R.string.dilink_not_sure
     })
 
@@ -2666,7 +2670,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
 
     private fun setupCarStep(content: LinearLayout) {
         val detection = DiLinkGeneration.detect()
-        val selected = DiLinkGeneration.confirmed(this) ?: detection.generation
+        val selected = DiLinkGeneration.current(this)
         setupTitle(content, R.string.setup_car_title, when (detection.source) {
             DiLinkGeneration.Source.SYSTEM_VERSION -> getString(R.string.setup_car_detected, dilinkLabel(detection.generation))
             DiLinkGeneration.Source.LIKELY -> getString(R.string.setup_car_likely, dilinkLabel(detection.generation))
@@ -2680,12 +2684,16 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             val chosen = generation == selected
             choices.addView(button("${if (chosen) "✓  " else ""}${dilinkLabel(generation)}", chosen) {
                 DiLinkGeneration.save(this, generation)
+                markReconnectNeeded()
                 render()
-            }, if (wide) LinearLayout.LayoutParams(0, dp(60), 1f).apply {
-                topMargin = dp(12); if (index > 0) marginStart = dp(12)
-            } else matchButton(12, 60))
+            }, if (wide) LinearLayout.LayoutParams(0, dp(SETTINGS_PROFILE_BUTTON_HEIGHT_DP), 1f).apply {
+                topMargin = dp(SETTINGS_BLOCK_GAP_DP); if (index > 0) marginStart = dp(SETTINGS_BLOCK_GAP_DP)
+            } else matchButton(SETTINGS_BLOCK_GAP_DP, SETTINGS_PROFILE_BUTTON_HEIGHT_DP))
         }
         card.addView(choices)
+        card.addView(label(getString(R.string.settings_vehicle_profile_reconnect), 14, MUTED))
+        if (selected == DiLinkGeneration.ARCFOX_T)
+            card.addView(label(getString(R.string.settings_arcfox_profile_summary), 14, MUTED))
         detection.evidence?.let {
             card.addView(label(getString(R.string.setup_car_evidence, it), 13, MUTED).apply { setPadding(0, dp(16), 0, 0) })
         }
@@ -2742,7 +2750,8 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                     AirPlayPersistence.loadLocationReportingEnabled(this), save = ::onLocationReportingChanged)
                 SetupGuide.Feature.CLUSTER_MAP -> reconnectingToggle(card,
                     getString(R.string.carplay_map_on_instrument_cluster_experimental),
-                    getString(R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c),
+                    getString(if (generation == DiLinkGeneration.ARCFOX_T) R.string.arcfox_cluster_map_description
+                        else R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c),
                     AirPlayPersistence.loadClusterMapEnabled(this)) {
                     AirPlayPersistence.saveClusterMapEnabled(this, it)
                     render()
@@ -2754,6 +2763,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                     ClusterActivityOutput.stopForSettings()
                     render()
                 }
+                SetupGuide.Feature.ARCFOX_SYNC -> card.addView(label(getString(R.string.settings_arcfox_profile_summary), 14, MUTED))
                 SetupGuide.Feature.BYD_NAVIGATION -> if (BydOutputSettings.available(this)) {
                     toggle(card, getString(R.string.navigation_on_hud_and_instrument_cluster),
                         getString(R.string.show_phone_navigation_arrows_distance_and_street_names_on),
@@ -4292,11 +4302,14 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
 
     // The cluster screen is described at connection time, so a running session reconnects over
     // its current link. The position choices need no call: getString(R.string.apply_and_reconnect) already does it.
+    private fun configuredClusterSafeAreaRect() = AirPlayPersistence.loadClusterSafeAreaRect(this)
+        ?: if (ArcfoxClusterDisplay.isVehicle(this)) ArcfoxClusterDisplay.defaultSafeAreaRect()
+        else DiLink4ClusterDisplay.defaultSafeAreaRect(
+            markerXPercent = AirPlayPersistence.loadClusterMarkerXPercent(this),
+            markerYPercent = AirPlayPersistence.loadClusterMarkerYPercent(this))
+
     private fun clusterSafeAreaControls(card: LinearLayout) {
-        val rect = AirPlayPersistence.loadClusterSafeAreaRect(this)
-            ?: DiLink4ClusterDisplay.defaultSafeAreaRect(
-                markerXPercent = AirPlayPersistence.loadClusterMarkerXPercent(this),
-                markerYPercent = AirPlayPersistence.loadClusterMarkerYPercent(this))
+        val rect = configuredClusterSafeAreaRect()
         card.addView(label(getString(R.string.safe_area_mapping_summary,
             rect.width, rect.height, rect.left, rect.top, 1920, 720), 14, MUTED))
         card.addView(actionButton(getString(R.string.cluster_safe_area_edit), false) {
@@ -4307,16 +4320,13 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             render()
             markReconnectNeeded()
         }, matchButton(10, 56))
-        card.addView(label(getString(R.string.cluster_safe_area_hint), 14, MUTED))
+        card.addView(label(getString(if (ArcfoxClusterDisplay.isVehicle(this)) R.string.settings_arcfox_safe_area_hint else R.string.cluster_safe_area_hint), 14, MUTED))
     }
 
     private fun openClusterSafeAreaEditor() {
         clusterSafeAreaDialog?.dismiss()
         val previewOwner = Any()
-        val initial = AirPlayPersistence.loadClusterSafeAreaRect(this)
-            ?: DiLink4ClusterDisplay.defaultSafeAreaRect(
-                markerXPercent = AirPlayPersistence.loadClusterMarkerXPercent(this),
-                markerYPercent = AirPlayPersistence.loadClusterMarkerYPercent(this))
+        val initial = configuredClusterSafeAreaRect()
         val editor = SafeAreaEditorView(this).apply {
             setBackgroundColor(SURFACE)
             setRect(initial, 1920, 720)
@@ -4329,7 +4339,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             setBackgroundColor(SURFACE)
         }
         panel.addView(label(getString(R.string.cluster_safe_area_edit), 18, TEXT, true))
-        panel.addView(label(getString(R.string.cluster_safe_area_live_hint), 14, MUTED))
+        panel.addView(label(getString(if (ArcfoxClusterDisplay.isVehicle(this)) R.string.settings_arcfox_safe_area_live_hint else R.string.cluster_safe_area_live_hint), 14, MUTED))
         panel.addView(ClusterSafeAreaPreviewFrame(this, editor), LinearLayout.LayoutParams(-1, 0, 1f))
         val actions = row()
         actions.addView(button(getString(R.string.cancel), false) { dialog.dismiss() },
@@ -4339,11 +4349,13 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             editor.currentRectForSource()?.let { AirPlayPersistence.saveClusterSafeAreaRect(this, it) }
             dialog.dismiss()
             render()
+            markReconnectNeeded()
             reconnectIfRunning()
         }, LinearLayout.LayoutParams(0, dp(56), 1f))
         panel.addView(actions)
         dialog.setContentView(panel, ViewGroup.LayoutParams(-1, -1))
-        editor.onRectChanged = { ClusterActivityOutput.updateSafeAreaPreview(previewOwner, it) }
+        if (!ArcfoxClusterDisplay.isVehicle(this))
+            editor.onRectChanged = { ClusterActivityOutput.updateSafeAreaPreview(previewOwner, it) }
         clusterSafeAreaDialog = dialog
         dialog.setOnDismissListener {
             editor.onRectChanged = null
@@ -4353,7 +4365,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         dialog.show()
         dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.9f).toInt(),
             (resources.displayMetrics.heightPixels * 0.85f).toInt())
-        ClusterActivityOutput.beginSafeAreaPreview(previewOwner, initial, this)
+        if (!ArcfoxClusterDisplay.isVehicle(this)) ClusterActivityOutput.beginSafeAreaPreview(previewOwner, initial, this)
     }
 
     private fun reconnectIfRunning() {
@@ -4660,7 +4672,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         val custom = AirPlayPersistence.loadCustomAirPlayIconFile(this)?.let { BitmapFactory.decodeFile(it.absolutePath) }
         val preview = row().apply { gravity = Gravity.CENTER_VERTICAL }
         preview.addView(ImageView(this).apply {
-            setImageBitmap(custom ?: BitmapFactory.decodeResource(resources, VehicleBranding.carHomeIcon()))
+            setImageBitmap(custom ?: BitmapFactory.decodeResource(resources, VehicleBranding.carHomeIcon(this@DiPlayActivity)))
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = rounded(SURFACE, BORDER)
             clipToOutline = true
@@ -5726,5 +5738,6 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         private const val NOTE_LINE_GAP_DP = 4
         private const val NOTE_ATTACH_GAP_DP = 6
         private const val SETTINGS_BLOCK_GAP_DP = 16
+        private const val SETTINGS_PROFILE_BUTTON_HEIGHT_DP = 60
     }
 }

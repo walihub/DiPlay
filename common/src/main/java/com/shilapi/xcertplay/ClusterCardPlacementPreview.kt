@@ -43,7 +43,7 @@ internal class ClusterCardPlacementPreview(context: Context, private val mode: M
         canvas.drawRoundRect(RectF(left, top, left + panelWidth, top + panelHeight),
             7f * density, 7f * density, stroke)
         fun card(x: Int, y: Int, size: Int, paint: Paint) {
-            val rect = if (ArcfoxClusterDisplay.isVehicle())
+            val rect = if (ArcfoxClusterDisplay.isVehicle(context))
                 ArcfoxClusterDisplay.SMALL_CARD_RECT
             else ClusterTurnCardOverlay.card(1920, 720, x, y, size)
             canvas.drawRoundRect(RectF(left + rect.left * scale, top + rect.top * scale,
@@ -57,7 +57,7 @@ internal class ClusterCardPlacementPreview(context: Context, private val mode: M
             canvas.drawCircle(left + 6f * density, margin + 10f * density, 4f * density, full)
             canvas.drawText(context.getString(R.string.card_preview_full), left + 16f * density,
                 margin + 14f * density, label)
-        } else if (ArcfoxClusterDisplay.isVehicle()) {
+        } else if (ArcfoxClusterDisplay.isVehicle(context)) {
             // Arcfox uses the physical display coordinates; no native crop has been observed.
             card(AirPlayPersistence.loadClusterSmallWindowCardXPercent(context),
                 AirPlayPersistence.loadClusterSmallWindowCardYPercent(context),

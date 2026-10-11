@@ -16,6 +16,7 @@ object ArcfoxPhoneSync {
     private const val TAG = "DiPlay-ArcfoxPhone"
 
     private var context: Context? = null
+    private var profileEnabled = true
     private var current: CarPlayCallCard? = null
     private var shown: CarPlayCallCard? = null
 
@@ -23,12 +24,13 @@ object ArcfoxPhoneSync {
 
     fun attach(context: Context) {
         this.context = context.applicationContext
+        profileEnabled = com.shilapi.xcertplay.vehicle.VehicleProfiles.isArcfox(context)
     }
 
     @Synchronized fun onCard(card: CarPlayCallCard?) {
         current = card
         val app = context ?: return
-        if (!available() || card == shown) return
+        if (!profileEnabled || !available() || card == shown) return
         if (send(app, card)) shown = card
     }
 

@@ -10,6 +10,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SetupGuideTest {
+    @Test fun arcfoxDetectionDefaultsToItsOwnFeatureSet() {
+        val detected = DiLinkGeneration.detect("HS7013A", "AAOP_COCKPIT/HS7013A/test", null, 29)
+        assertEquals(DiLinkGeneration.ARCFOX_T, detected.generation)
+        assertEquals(Source.SYSTEM_VERSION, detected.source)
+        val features = SetupGuide.features(detected.generation).map { it.feature }
+        assertTrue(Feature.ARCFOX_SYNC in features)
+        assertTrue(Feature.CLUSTER_MAP in features)
+        assertFalse(Feature.DILINK4_ADB_CLUSTER in features)
+        assertFalse(Feature.BYD_NAVIGATION in features)
+    }
+
     @Test fun gccHanDiLink3IsDetectedFromItsProduct() {
         val detection = DiLinkGeneration.detect("DiLink3.0",
             "BYD-AUTO/DiLink3.0/DiLink3.0:10/QKQ1.210910.001/eng.build.20260204.025317:user/release-keys", null, 29)

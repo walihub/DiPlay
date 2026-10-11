@@ -716,14 +716,14 @@ object AirPlayPersistence {
 
     fun loadClusterMapEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CLUSTER_MAP,
-            android.os.Build.FINGERPRINT.startsWith("AAOP_COCKPIT/") &&
+            ArcfoxClusterDisplay.isVehicle(context) &&
                 ClusterMapPresentation.findDisplay(context)?.let { display ->
                     val size = ClusterMapPresentation.sizeOf(display)
                     ArcfoxClusterDisplay.matches(android.os.Build.FINGERPRINT, display.name,
                         size.x, size.y, display.displayId)
                 } == true)
 
-    fun loadAdbClusterEnabled(context: Context): Boolean = loadClusterMapEnabled(context) &&
+    fun loadAdbClusterEnabled(context: Context): Boolean = !ArcfoxClusterDisplay.isVehicle(context) && loadClusterMapEnabled(context) &&
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ADB_CLUSTER_ACTIVITY, false)
 
     fun saveAdbClusterEnabled(context: Context, enabled: Boolean) {
@@ -734,7 +734,7 @@ object AirPlayPersistence {
         edit.apply()
     }
 
-    fun loadLegacyClusterEnabled(context: Context): Boolean = loadClusterMapEnabled(context) &&
+    fun loadLegacyClusterEnabled(context: Context): Boolean = !ArcfoxClusterDisplay.isVehicle(context) && loadClusterMapEnabled(context) &&
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("platform21_cluster_enabled", false)
 
     fun saveLegacyClusterEnabled(context: Context, enabled: Boolean) {
@@ -870,7 +870,7 @@ object AirPlayPersistence {
                 ClusterTurnCardOverlay.snap(percent, CarPlayClusterDisplay.markerXPercents)).apply()
     }
 
-    fun defaultClusterMarkerYPercent(): Int = if (ArcfoxClusterDisplay.isVehicle()) ArcfoxClusterDisplay.DEFAULT_MARKER_Y_PERCENT else 45
+    fun defaultClusterMarkerYPercent(context: Context? = null): Int = if (com.shilapi.xcertplay.vehicle.VehicleProfiles.isArcfox(context)) ArcfoxClusterDisplay.DEFAULT_MARKER_Y_PERCENT else 45
 
     fun loadClusterMarkerYPercent(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -879,7 +879,7 @@ object AirPlayPersistence {
         }
         val step = prefs.getInt(KEY_CLUSTER_MARKER_Y, 0)
         return ClusterTurnCardOverlay.snap(
-            defaultClusterMarkerYPercent() + step * CarPlayClusterDisplay.MARKER_STEP_PERCENT,
+            defaultClusterMarkerYPercent(context) + step * CarPlayClusterDisplay.MARKER_STEP_PERCENT,
             CarPlayClusterDisplay.markerYPercents,
         )
     }
@@ -902,7 +902,7 @@ object AirPlayPersistence {
                 CarPlayClusterDisplay.markerXPercents,
             )
         }
-        if (ArcfoxClusterDisplay.isVehicle() && !prefs.contains(KEY_CLUSTER_SMALL_WINDOW_MARKER_X)) return loadClusterMarkerXPercent(context)
+        if (ArcfoxClusterDisplay.isVehicle(context) && !prefs.contains(KEY_CLUSTER_SMALL_WINDOW_MARKER_X)) return loadClusterMarkerXPercent(context)
         val legacyStep = prefs.getInt(KEY_CLUSTER_SMALL_WINDOW_MARKER_X, 3)
         val legacyPercent = (Math.round((49.5 + legacyStep * 10) / 5) * 5).toInt()
         return ClusterTurnCardOverlay.snap(legacyPercent, CarPlayClusterDisplay.markerXPercents)
@@ -922,7 +922,7 @@ object AirPlayPersistence {
                 CarPlayClusterDisplay.markerYPercents,
             )
         }
-        if (ArcfoxClusterDisplay.isVehicle() && !prefs.contains(KEY_CLUSTER_SMALL_WINDOW_MARKER_Y)) return loadClusterMarkerYPercent(context)
+        if (ArcfoxClusterDisplay.isVehicle(context) && !prefs.contains(KEY_CLUSTER_SMALL_WINDOW_MARKER_Y)) return loadClusterMarkerYPercent(context)
         val legacyStep = prefs.getInt(KEY_CLUSTER_SMALL_WINDOW_MARKER_Y, 0)
         val legacyPercent = (Math.round((45.5 + legacyStep * 10) / 5) * 5).toInt()
         return ClusterTurnCardOverlay.snap(legacyPercent, CarPlayClusterDisplay.markerYPercents)
@@ -974,7 +974,7 @@ object AirPlayPersistence {
             prefs.contains(KEY_CLUSTER_SMALL_WINDOW_CARD_X) -> prefs.getInt(KEY_CLUSTER_SMALL_WINDOW_CARD_X, 80)
             prefs.contains(KEY_CLUSTER_TURN_CARD_OVERLAY_X) || prefs.contains(KEY_CLUSTER_TURN_CARD_OVERLAY_POSITION) ->
                 loadClusterTurnCardOverlayXPercent(context)
-            else -> if (ArcfoxClusterDisplay.isVehicle()) ArcfoxClusterDisplay.SMALL_CARD_X_PERCENT else 80
+            else -> if (ArcfoxClusterDisplay.isVehicle(context)) ArcfoxClusterDisplay.SMALL_CARD_X_PERCENT else 80
         }
         return ClusterTurnCardOverlay.snap(x, ClusterTurnCardOverlay.smallWindowXPercents)
     }
@@ -990,7 +990,7 @@ object AirPlayPersistence {
         val y = when {
             prefs.contains(KEY_CLUSTER_SMALL_WINDOW_CARD_Y) -> prefs.getInt(KEY_CLUSTER_SMALL_WINDOW_CARD_Y, 25)
             prefs.contains(KEY_CLUSTER_TURN_CARD_OVERLAY_Y) -> loadClusterTurnCardOverlayYPercent(context)
-            else -> if (ArcfoxClusterDisplay.isVehicle()) ArcfoxClusterDisplay.SMALL_CARD_Y_PERCENT else 25
+            else -> if (ArcfoxClusterDisplay.isVehicle(context)) ArcfoxClusterDisplay.SMALL_CARD_Y_PERCENT else 25
         }
         return ClusterTurnCardOverlay.snap(y, ClusterTurnCardOverlay.smallWindowYPercents)
     }
@@ -1133,18 +1133,21 @@ object AirPlayPersistence {
     }
 
     // Cluster mapping has its own key; never reuse the main display mapping at the same resolution.
+    private fun clusterSafeAreaKey(context: Context) = if (ArcfoxClusterDisplay.isVehicle(context))
+        "arcfox_t_cluster_safe_area_1920x720" else "cluster_safe_area_1920x720"
+
     fun loadClusterSafeAreaRect(context: Context): SafeAreaRect? =
         SafeAreaCodec.decode(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString("cluster_safe_area_1920x720", null))?.clampTo(1920, 720)
+            .getString(clusterSafeAreaKey(context), null))?.clampTo(1920, 720)
 
     fun saveClusterSafeAreaRect(context: Context, rect: SafeAreaRect) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString("cluster_safe_area_1920x720", SafeAreaCodec.encode(rect.clampTo(1920, 720))).apply()
+            .putString(clusterSafeAreaKey(context), SafeAreaCodec.encode(rect.clampTo(1920, 720))).apply()
     }
 
     fun clearClusterSafeAreaRect(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .remove("cluster_safe_area_1920x720").apply()
+            .remove(clusterSafeAreaKey(context)).apply()
     }
 
     fun loadRightHandDrive(context: Context): Boolean =

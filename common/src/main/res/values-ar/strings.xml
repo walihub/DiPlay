@@ -683,15 +683,15 @@
     <string name="settings_background_update_checks">التحقق من التحديثات في الخلفية</string>
     <string name="settings_background_update_checks_description">مرة كل يوم، يتحقق DiPlay من GitHub عن إصدار جديد ويعرضه في الشاشة الرئيسية. لا يتم التنزيل أبدًا دون نقرتك.</string>
     <string name="setup_guide">دليل الإعداد</string>
-    <string name="setup_guide_description">اعرف إصدار DiLink، واختر طريقة الاتصال، وفعّل الميزات المناسبة لسيارتك.</string>
+    <string name="setup_guide_description">حدد نظام السيارة واختر الاتصال وفعل الميزات المناسبة.</string>
     <string name="setup_step_of">الخطوة %1$d من %2$d</string>
     <string name="setup_skip">تخطي الإعداد</string>
     <string name="setup_next">التالي</string>
     <string name="setup_car_title">سيارتك</string>
     <string name="setup_car_detected">تم العثور على %1$s في إصدار النظام. غيّره إن كان خاطئاً.</string>
     <string name="setup_car_likely">يبدو أنه %1$s. يرجى التأكيد.</string>
-    <string name="setup_car_unknown">تعذّر على DiPlay قراءة إصدار DiLink. اختره أدناه، أو اترك «غير متأكد».</string>
-    <string name="setup_car_choose">إصدار DiLink</string>
+    <string name="setup_car_unknown">تعذر على DiPlay تحديد إصدار النظام. اختر أدناه أو اترك «غير متأكد».</string>
+    <string name="setup_car_choose">إصدار نظام السيارة</string>
     <string name="setup_car_evidence">إصدار النظام: %1$s</string>
     <string name="dilink_3">DiLink 3</string>
     <string name="dilink_4">DiLink 4</string>
@@ -766,4 +766,9 @@
     <string name="settings_ambient_unavailable">فشل التحقق للقراءة فقط: تفويض ADB الموجود أو واجهة الإضاءة المدعومة غير متاحة. لم تُحفظ الإعدادات. اضبط الوصول بشكل منفصل أثناء الوقوف؛ هذه الميزة لا تفعّل ADB ولا تطلب التفويض.</string>
     <string name="settings_ambient_album">اتباع غلاف الألبوم</string>
     <string name="settings_ambient_album_description">يُطابق لون الغلاف تقريبياً مع ألوان السيارة المتاحة. تستخدم الأغلفة الرمادية أو السوداء أو المفقودة جميع الألوان الـ31؛ وقد تستخدم الأغلفة البيضاء غالباً الأبيض أو الأبيض البارد.</string>
+    <string name="settings_vehicle_profile_reconnect">يطبق إعداد السيارة عند اتصال CarPlay التالي.</string>
+    <string name="settings_arcfox_profile_summary">يستخدم ARCFOX T خريطة العدادات والمنطقة الآمنة وبطاقة الملاحة وHUD والتكبير بالمقود والموسيقى والمكالمات والصوت وأيقونة ARCFOX. تبقى قنوات الصوت المختارة.</string>
+    <string name="settings_arcfox_safe_area_hint">المنطقة الافتراضية 920×610: هامش 500 يمينا ويسارا و80 أعلى و30 أسفل. اسحب الحواف الخضراء واحفظ لتطبيقها عند اتصال CarPlay التالي. إعادة الضبط تستعيد هذه المنطقة.</string>
+    <string name="settings_arcfox_safe_area_live_hint">اضبط الحواف الخضراء في المعاينة. احفظ وأعد اتصال CarPlay لتطبيق المنطقة.</string>
+    <string name="settings_arcfox_t">ARCFOX T</string>
 </resources>

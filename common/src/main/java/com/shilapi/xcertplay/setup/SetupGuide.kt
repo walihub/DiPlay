@@ -2,7 +2,7 @@ package com.shilapi.xcertplay.setup
 
 import android.content.Context
 
-/** Which features the setup guide offers for each DiLink generation, and how well each is proven. */
+/** Which features the setup guide offers for each vehicle profile, and how well each is proven. */
 object SetupGuide {
     const val STEP_CAR = 0
     const val STEP_CONNECTION = 1
@@ -11,7 +11,7 @@ object SetupGuide {
     const val STEP_DONE = 4
     const val STEP_COUNT = 5
 
-    enum class Feature { AUTO_CONNECT, LOCATION, CLUSTER_MAP, BYD_NAVIGATION, CALLS_ON_DASHBOARD, CALL_KEYS, DILINK4_ADB_CLUSTER }
+    enum class Feature { AUTO_CONNECT, LOCATION, CLUSTER_MAP, BYD_NAVIGATION, CALLS_ON_DASHBOARD, CALL_KEYS, DILINK4_ADB_CLUSTER, ARCFOX_SYNC }
 
     /** TESTED: confirmed on at least one car of this generation. HIDDEN: not offered in the guide. */
     enum class Status { TESTED, EXPERIMENTAL, HIDDEN }
@@ -21,6 +21,9 @@ object SetupGuide {
     /** Claims follow docs/COMPATIBILITY.md: community reports, not a certified support list. */
     fun features(generation: DiLinkGeneration): List<Entry> {
         fun entry(feature: Feature, status: Status, needsAdb: Boolean = false) = Entry(feature, status, needsAdb)
+        if (generation == DiLinkGeneration.ARCFOX_T) return listOf(
+            entry(Feature.AUTO_CONNECT, Status.TESTED), entry(Feature.LOCATION, Status.TESTED),
+            entry(Feature.CLUSTER_MAP, Status.EXPERIMENTAL), entry(Feature.ARCFOX_SYNC, Status.EXPERIMENTAL))
         val dilink3 = generation == DiLinkGeneration.DILINK_3
         val dilink4 = generation == DiLinkGeneration.DILINK_4
         return listOf(

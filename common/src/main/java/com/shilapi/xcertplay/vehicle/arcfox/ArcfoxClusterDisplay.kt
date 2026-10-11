@@ -1,6 +1,10 @@
 package com.shilapi.xcertplay.vehicle.arcfox
 
 import com.shilapi.xcertplay.*
+import android.content.Context
+import com.shilapi.xcertplay.vehicle.VehicleProfiles
+import com.shilapi.xcertplay.airplay.SafeAreaRect
+import com.shilapi.xcertplay.airplay.AirPlaySafeArea
 
 import com.shilapi.xcertplay.airplay.AirPlayDisplayConfig
 import com.shilapi.xcertplay.airplay.AirPlayInsets
@@ -12,7 +16,7 @@ internal object ArcfoxClusterDisplay {
     private const val DISPLAY_NAME = "HDMI 屏幕"
     const val WIDTH = 1920
     const val HEIGHT = 720
-    // Fixed iPhone layout region. Full-panel map background still covers the OEM map.
+    // Default iPhone layout region. Full-panel map background still covers the OEM map.
     const val MAP_VIEW_WIDTH = 920
     const val MAP_VIEW_HEIGHT = 610
     const val MAP_VIEW_LEFT = 500
@@ -52,13 +56,19 @@ internal object ArcfoxClusterDisplay {
         fingerprint.startsWith(FINGERPRINT_PREFIX) && displayId != 0 &&
             name == DISPLAY_NAME && width == WIDTH && height == HEIGHT
 
+    fun isVehicle(context: Context): Boolean = VehicleProfiles.isArcfox(context)
+
+    fun defaultSafeAreaRect() = SafeAreaRect(MAP_VIEW_LEFT, MAP_VIEW_TOP,
+        WIDTH - MAP_VIEW_INSETS.right, HEIGHT - MAP_VIEW_INSETS.bottom)
+
     @Suppress("UNUSED_PARAMETER")
     fun streamConfig(content: CarPlayClusterDisplay.Content,
         horizontalStep: Int = 0, verticalStep: Int = 0,
-        markerXPercent: Int? = null, markerYPercent: Int? = null): AirPlayDisplayConfig =
+        markerXPercent: Int? = null, markerYPercent: Int? = null,
+        safeAreaRect: SafeAreaRect? = null): AirPlayDisplayConfig =
         CarPlayClusterDisplay.config(WIDTH, HEIGHT, scalePercent = 100, content = content).copy(
             viewArea = null,
-            safeArea = MAP_VIEW_INSETS,
+            safeArea = safeAreaRect?.let { AirPlaySafeArea.toInsets(it.clampTo(WIDTH, HEIGHT), WIDTH, HEIGHT, WIDTH, HEIGHT) } ?: MAP_VIEW_INSETS,
             safeAreaDrawOutside = true,
         )
 }

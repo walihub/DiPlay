@@ -77,6 +77,7 @@ internal object CarPlayMediaKeys {
     fun attach(context: Context, next: CarPlayController) {
         if (controller !== next) {
             releaseLocked()
+            VehicleMediaAdapter.onSessionStarted(context)
             artworkOwner = artworkQueue.newSession()
         }
         appContext = context.applicationContext

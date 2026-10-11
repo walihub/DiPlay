@@ -683,15 +683,15 @@
     <string name="settings_background_update_checks">Buscar actualizaciones en segundo plano</string>
     <string name="settings_background_update_checks_description">Una vez al día, DiPlay busca una versión nueva en GitHub y la muestra en la pantalla de inicio. Nunca descarga sin que lo toques.</string>
     <string name="setup_guide">Guía de configuración</string>
-    <string name="setup_guide_description">Detecta tu versión de DiLink, elige una conexión y activa las funciones adecuadas para tu coche.</string>
+    <string name="setup_guide_description">Identifica el equipo del coche, elige una conexión y activa sus funciones.</string>
     <string name="setup_step_of">PASO %1$d DE %2$d</string>
     <string name="setup_skip">Omitir configuración</string>
     <string name="setup_next">Siguiente</string>
     <string name="setup_car_title">Tu coche</string>
     <string name="setup_car_detected">Se encontró %1$s en la versión del sistema. Cámbialo si no es correcto.</string>
     <string name="setup_car_likely">Parece %1$s. Confírmalo.</string>
-    <string name="setup_car_unknown">DiPlay no pudo leer la versión de DiLink. Elígela abajo o deja No estoy seguro.</string>
-    <string name="setup_car_choose">Versión de DiLink</string>
+    <string name="setup_car_unknown">DiPlay no pudo identificar la versión del equipo. Elige abajo o deja No estoy seguro.</string>
+    <string name="setup_car_choose">Versión del equipo del coche</string>
     <string name="setup_car_evidence">Versión del sistema: %1$s</string>
     <string name="dilink_3">DiLink 3</string>
     <string name="dilink_4">DiLink 4</string>
@@ -766,4 +766,9 @@
     <string name="settings_ambient_unavailable">La comprobación de solo lectura falló: falta autorización ADB existente o una interfaz compatible. No se guardaron ajustes. Configura el acceso por separado con el vehículo estacionado; esta función no activa ADB ni solicita autorización.</string>
     <string name="settings_ambient_album">Seguir la portada del álbum</string>
     <string name="settings_ambient_album_description">Usa el color de la portada o colores cercanos disponibles del vehículo. Las portadas grises, negras o ausentes usan los 31 colores; las mayormente blancas pueden usar blanco o blanco frío.</string>
+    <string name="settings_vehicle_profile_reconnect">La configuración del coche se aplica en la próxima conexión de CarPlay.</string>
+    <string name="settings_arcfox_profile_summary">ARCFOX T usa el mapa y área segura del cuadro, la tarjeta de navegación, HUD, zoom del volante, música, llamadas, voz e icono ARCFOX. Se conservan los canales de audio elegidos.</string>
+    <string name="settings_arcfox_safe_area_hint">Área predeterminada: 920×610, con 500 a cada lado, 80 arriba y 30 abajo. Arrastra los bordes verdes y guarda para la próxima conexión de CarPlay. Restablecer recupera esta área.</string>
+    <string name="settings_arcfox_safe_area_live_hint">Ajusta los bordes verdes en la vista previa. Guarda y vuelve a conectar CarPlay para aplicar el área.</string>
+    <string name="settings_arcfox_t">ARCFOX T</string>
 </resources>

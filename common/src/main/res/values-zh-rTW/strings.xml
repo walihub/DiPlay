@@ -748,15 +748,15 @@
     <string name="settings_background_update_checks">在背景檢查更新</string>
     <string name="settings_background_update_checks_description">DiPlay 每天會在 GitHub 上檢查一次新版本，並顯示在主畫面上。未經你點擊，絕不會下載。</string>
     <string name="setup_guide">設定精靈</string>
-    <string name="setup_guide_description">識別 DiLink 版本，選擇連線方式，並開啟適合你車輛的功能。</string>
+    <string name="setup_guide_description">識別車機版本，選擇連線方式，並啟用適合你車輛的功能。</string>
     <string name="setup_step_of">第 %1$d 步，共 %2$d 步</string>
     <string name="setup_skip">略過設定</string>
     <string name="setup_next">下一步</string>
     <string name="setup_car_title">你的車輛</string>
     <string name="setup_car_detected">已從系統版本中識別為 %1$s。如有誤請變更。</string>
     <string name="setup_car_likely">看起來是 %1$s，請確認。</string>
-    <string name="setup_car_unknown">DiPlay 無法讀取 DiLink 版本。請在下方選擇，或保留「不確定」。</string>
-    <string name="setup_car_choose">DiLink 版本</string>
+    <string name="setup_car_unknown">DiPlay 無法識別車機版本。請在下方選擇，或保留「不確定」。</string>
+    <string name="setup_car_choose">車機版本</string>
     <string name="setup_car_evidence">系統版本：%1$s</string>
     <string name="dilink_3">DiLink 3</string>
     <string name="dilink_4">DiLink 4</string>
@@ -826,4 +826,9 @@
     <string name="settings_ambient_unavailable">唯讀檢查失敗：缺少既有 ADB 授權或支援的燈光介面。未儲存燈光設定。請停車後另行設定存取；本功能不啟用 ADB，也不請求授權。</string>
     <string name="settings_ambient_album">跟隨專輯封面</string>
     <string name="settings_ambient_album_description">按封面取色並近似匹配原車可用色號。灰黑或無封面時使用全部31色；大面積白色封面可使用白色或冷白。</string>
+    <string name="settings_vehicle_profile_reconnect">車機配置在下次 CarPlay 連線時生效。</string>
+    <string name="settings_arcfox_profile_summary">極狐 T 使用儀表地圖與安全區域、導航卡片聯動、HUD 導航、方向盤縮放、音樂／電話／語音同步和極狐圖示。音訊保留你選擇的通道。</string>
+    <string name="settings_arcfox_safe_area_hint">預設區域 920×610：左右各留 500、上方 80、下方 30。拖動綠色邊界，儲存後在下次 CarPlay 連線時生效；重設恢復此預設區域。</string>
+    <string name="settings_arcfox_safe_area_live_hint">在預覽中拖動綠色邊界調整區域，儲存並重新連線 CarPlay 後生效。</string>
+    <string name="settings_arcfox_t">極狐 T</string>
 </resources>

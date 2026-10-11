@@ -352,6 +352,8 @@ class CarPlayHostActivity : ComponentActivity() {
     private var detectedCluster = ClusterActivityState.Snapshot(null, false)
     // Keep one surface per layer alive, including while its map card is hidden.
     private val clusterLayers = mutableMapOf<Boolean, ClusterMapPresentation>()
+    private var arcfoxSessionProfile: Boolean? = null
+    private fun arcfoxVehicleProfile(): Boolean = arcfoxSessionProfile ?: ArcfoxClusterDisplay.isVehicle(this)
     private val vehicleCluster by lazy { vehicleClusterAdapter(this) }
     private var clusterTurnGuidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance? = null
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
@@ -1050,12 +1052,12 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun clusterSmallWindowAutoEnabled(): Boolean =
-        !ArcfoxClusterDisplay.isVehicle() &&
+        !arcfoxVehicleProfile() &&
             AirPlayPersistence.loadClusterSmallWindowMode(this) == CLUSTER_SMALL_WINDOW_AUTO
 
     private fun smallWindowActive(): Boolean = when (AirPlayPersistence.loadClusterSmallWindowMode(this)) {
         CLUSTER_SMALL_WINDOW_ON -> true
-        CLUSTER_SMALL_WINDOW_AUTO -> if (ArcfoxClusterDisplay.isVehicle()) false else when (adbNaviMode) {
+        CLUSTER_SMALL_WINDOW_AUTO -> if (arcfoxVehicleProfile()) false else when (adbNaviMode) {
             com.shilapi.xcertplay.hud.BydClusterNaviMode.SMALL -> true
             com.shilapi.xcertplay.hud.BydClusterNaviMode.FULL -> false
             else -> detectedCluster.smallWindow
@@ -1155,7 +1157,7 @@ class CarPlayHostActivity : ComponentActivity() {
         val overlay = CarPlayClusterDisplay.usesCustomTurnCard(AirPlayPersistence.loadClusterContent(this))
         // CN: the small-window navi keeps a second card rect, and the card glass has a theme override.
         val smallWindow = smallWindowActive()
-        val nativeArcfoxCard = ArcfoxClusterDisplay.isVehicle()
+        val nativeArcfoxCard = arcfoxVehicleProfile()
         val xPercent = if (nativeArcfoxCard) ArcfoxClusterDisplay.SMALL_CARD_X_PERCENT else if (smallWindow) AirPlayPersistence.loadClusterSmallWindowCardXPercent(this)
             else AirPlayPersistence.loadClusterTurnCardOverlayXPercent(this)
         val yPercent = if (nativeArcfoxCard) ArcfoxClusterDisplay.SMALL_CARD_Y_PERCENT else if (smallWindow) AirPlayPersistence.loadClusterSmallWindowCardYPercent(this)
@@ -1187,7 +1189,7 @@ class CarPlayHostActivity : ComponentActivity() {
         updateVehicleClusterCardLink()
     }
     private fun updateVehicleClusterCardLink() {
-        if (!ArcfoxClusterDisplay.isVehicle()) return
+        if (!arcfoxVehicleProfile()) return
         val presentation = clusterPresentation
         val shown = !shuttingDown.get() && CarPlayBackgroundSession.active &&
             AirPlayPersistence.loadClusterMapEnabled(this) &&
@@ -1251,10 +1253,22 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun clusterDisplayConfig(): AirPlayDisplayConfig? {
+        arcfoxSessionProfile = ArcfoxClusterDisplay.isVehicle(this)
         adbClusterConfigured = false
         clusterStreamOnDisplay = false
         requestedSmallWindowForStream = null
         if (!AirPlayPersistence.loadClusterMapEnabled(this)) return null
+        if (arcfoxVehicleProfile()) {
+            val display = ClusterMapPresentation.findDisplay(this)
+            clusterStreamOnDisplay = display != null && ClusterMapPresentation.sizeOf(display).let {
+                ArcfoxClusterDisplay.matches(android.os.Build.FINGERPRINT, display.name, it.x, it.y, display.displayId)
+            }
+            requestedSmallWindowForStream = smallWindowActive()
+            return ArcfoxClusterDisplay.streamConfig(AirPlayPersistence.loadClusterContent(this),
+                safeAreaRect = AirPlayPersistence.loadClusterSafeAreaRect(this)).also {
+                MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels
+            }
+        }
         if (AdbClusterRouter.enabled(this) && ClusterActivityOutput.hasConfirmedRoute()) {
             adbClusterConfigured = true
             clusterStreamOnDisplay = true
@@ -1286,18 +1300,6 @@ class CarPlayHostActivity : ComponentActivity() {
                         markerXPercent = AirPlayPersistence.loadClusterMarkerXPercent(this),
                         markerYPercent = AirPlayPersistence.loadClusterMarkerYPercent(this),
                     ).also { MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels }
-                }
-                if (ArcfoxClusterDisplay.matches(android.os.Build.FINGERPRINT, display.name,
-                        size.x, size.y, display.displayId)) {
-                    val smallWindow = smallWindowActive()
-                    requestedSmallWindowForStream = smallWindow
-                    return ArcfoxClusterDisplay.streamConfig(AirPlayPersistence.loadClusterContent(this),
-                        markerXPercent = if (smallWindow) AirPlayPersistence.loadClusterSmallWindowMarkerXPercent(this)
-                            else AirPlayPersistence.loadClusterMarkerXPercent(this),
-                        markerYPercent = if (smallWindow) AirPlayPersistence.loadClusterSmallWindowMarkerYPercent(this)
-                            else AirPlayPersistence.loadClusterMarkerYPercent(this)).also {
-                        MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels
-                    }
                 }
                 val requestedScale = AirPlayPersistence.loadClusterMapScalePercent(this)
                 val smallWindow = smallWindowActive()
@@ -4500,7 +4502,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun defaultAirPlayIconBytes(): ByteArray =
         // Shown in CarPlay's app list as the "back to the car" button.
-        resources.openRawResource(VehicleBranding.carHomeIcon()).use { it.readBytes() }
+        resources.openRawResource(VehicleBranding.carHomeIcon(this)).use { it.readBytes() }
 
     private fun updateAirPlayIconPreview() {
         val preview = iconPreviewView ?: return
@@ -4512,7 +4514,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 AirPlayPersistence.clearCustomAirPlayIcon(this)
             }
         }
-        val bitmap = customBitmap ?: BitmapFactory.decodeResource(resources, VehicleBranding.legacyIconPreview())
+        val bitmap = customBitmap ?: BitmapFactory.decodeResource(resources, VehicleBranding.legacyIconPreview(this))
         preview.setImageBitmap(bitmap)
         iconStatusView?.text =
             if (customBitmap != null) getString(R.string.custom_1_1_icon) else getString(R.string.default_placeholder_icon)

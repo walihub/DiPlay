@@ -519,3 +519,20 @@ ArcfoxClusterDisplay 固定安全区域、ArcfoxWheelZoom/Hidl、ArcfoxHudSync�
 从用户指定的本地 `ARCFOX_3.4.32_三功能_车钥匙综合优化_v1.3_登录007修复.apk` 提取 application-icon-640 对应 `res/Ryj.png`，原样保存为 `common/src/main/res/raw/ic_car_home_arcfox.png`（SHA-256 `4851b49030194dba9f53a73a29d23ee62ff74550c30465297702f9b0b0f01b77`）。蓝底白色极狐标志不重新绘制或裁剪。`VehicleBranding` 对 AAOP_COCKPIT 固件选择该资源；其他车型保持原图标，自定义图标优先。CarPlay 返回车机按钮和设置默认预览采用同一车型策略，旧宿主预览也在极狐车机显示该图标。图标随下一次 CarPlay 连接的 /info 发布；无需改变认证或主应用桌面图标。
 
 本次完整 AGENTS.md CI 通过；系统签名 release 与 verifyStandaloneAuthentication 通过。新包 `build/arcfox-release/DiPlay-0.2.17-Arcfox-Icon-system.apk`，SHA-256 `74411f3f1c8d9fa0793b40f5d3a3b25633ed2e21f756e62da3a56904e9d49ba7`，签名证书保持前述系统证书，认证资源与官方 0.2.17 字节一致。资源表 raw/ic_car_home_arcfox 指向经构建工具缩短名称的 res/tp.png，实际打包图片与参考 APK 原图字节一致。极狐适配类与 HIDL 回调存在，四个编译桩类定义不在 APK 中。此次安装尝试报告 device offline，图标更新尚未安装；重新连接 CarPlay 后才能确认实体显示。
+
+
+### 2026-10-11：统一车机版本与极狐 T 配置
+
+首次引导的“DiLink 版本”改为“车机版本”，选项为 DiLink 3、DiLink 4、DiLink 5、极狐 T、不确定。`AAOP_COCKPIT/` 系统指纹自动默认选择极狐 T；无需先手动保存。镜像无法识别车型时可手动选择极狐 T，以查看配置和预览界面。
+
+`shared/.../vehicle/VehicleProfile.kt` 提供共同的车型选择。显式选择优先于自动识别；“不确定”清除显式选择并恢复自动识别。读取旧 `diplay/setup_dilink_generation`，新选择写入 `diplay/vehicle_profile` 并同步旧键，保留已有比亚迪选择。首次引导保留原 DiLink 系统属性识别规则。
+
+极狐 T 选择统一控制仪表流、安全区域、卡片配置、HUD 会话适配、音乐/电话/语音输出、方向盘适配和极狐返回图标。原车服务调用仍需真实极狐固件；模拟器选择车型不会获得这些硬件服务。切换车型标记下次连接生效，不主动断开正在运行的 CarPlay。音乐/导航通道、缓冲和焦点设置不因选择车型而重置；极狐固件的语音通道 17、导航实际通道 11 的焦点例外仍使用之前适配策略。
+
+安全区域入口位于“设置 → 高级 → 仪表地图（实验性）”，选择极狐 T 后即显示，不要求已经连接 iPhone 或存在真实仪表显示。沿用原安全区域编辑框，极狐只使用编辑框内的本地预览，不启动比亚迪 ADB 仪表绿色边界预览。默认矩形 `(500,80)-(1420,690)`，920×610；左右各500，上80，下30。编辑后存于独立键 `xcertplay_airplay/arcfox_t_cluster_safe_area_1920x720`，不读取或覆盖 DiLink 4 的 `cluster_safe_area_1920x720`。重置只清除当前车型矩形，恢复默认区域。保存/重置在下次连接应用；正在连接时编辑框的“应用并重连”按钮明确执行重连。
+
+仪表视频仍为完整1920×720，`viewArea=null`、`safeAreaDrawOutside=true`。保存矩形只改变发给 iPhone 的 `safeArea`，不裁剪整体视频、不从地图流推测车标坐标。极狐配置停用比亚迪 ADB/平台21输出路线，但保留其保存值供切回比亚迪使用。HUD 继续按有效导航自动显示与每5秒保活，没有额外显示开关。
+
+新增回归验证覆盖自动默认、手动覆盖与恢复自动、旧车型选择迁移、极狐/BYD安全区域隔离、完整仪表分辨率和自定义安全区域、大字体窄屏/宽屏及阿拉伯语截图。完整 CI 和系统签名产物验证结果见本次构建记录。
+
+本次完整 CI 已通过：shared 1309 项（1项跳过）、common 1117 项，0失败；home测试任务无测试源，任务成功。mobile/home/maphost的Lint和debug构建均通过。UI截图保存在 `common/build/reports/arcfox-profile-ui/`，包含600dp高密度、1280dp宽屏、1.5字体和阿拉伯语布局。

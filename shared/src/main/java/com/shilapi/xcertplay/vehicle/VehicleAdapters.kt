@@ -27,10 +27,10 @@ object VehicleAdapters {
     private object DefaultSession : VehicleSessionAdapter
 
     fun session(context: Context, owner: Any): VehicleSessionAdapter =
-        if (VehicleIdentity.isArcfox()) ArcfoxSessionAdapter(context, owner) else DefaultSession
+        if (VehicleProfiles.isArcfox(context)) ArcfoxSessionAdapter(context, owner) else DefaultSession
 
     fun registerVoiceKey(context: Context, requestSiri: () -> Boolean) =
-        ArcfoxHardKeys.register(context, requestSiri)
+        if (VehicleProfiles.isArcfox(context)) ArcfoxHardKeys.register(context, requestSiri) else null
 
     fun attachCalls(context: Context) = ArcfoxPhoneSync.attach(context)
     fun onCall(card: CarPlayCallCard?) = ArcfoxPhoneSync.onCard(card)

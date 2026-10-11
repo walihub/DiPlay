@@ -2,12 +2,15 @@ package com.shilapi.xcertplay.setup
 
 import android.content.Context
 import android.os.Build
+import com.shilapi.xcertplay.vehicle.VehicleProfile
+import com.shilapi.xcertplay.vehicle.VehicleProfiles
 
-/** The BYD head unit generation. The setup guide uses it only to explain which features apply. */
+/** Setup labels for the shared vehicle profile; the existing BYD detector remains intact. */
 enum class DiLinkGeneration(val key: String) {
     DILINK_3("dilink3"),
     DILINK_4("dilink4"),
     DILINK_5("dilink5"),
+    ARCFOX_T("arcfox_t"),
     UNKNOWN("unknown");
 
     /** How the guess was made, so the guide can say how sure it is. */
@@ -18,8 +21,6 @@ enum class DiLinkGeneration(val key: String) {
     companion object {
         private val VERSION = Regex("""DiLink\s*([345])(?:\.\d+)?""", RegexOption.IGNORE_CASE)
         private const val CONTROLLER_VERSION_PROPERTY = "apps.setting.product.outswver"
-        private const val PREFS = "diplay"
-        private const val KEY = "setup_dilink_generation"
 
         fun fromKey(key: String?): DiLinkGeneration? = entries.firstOrNull { it.key == key }
 
@@ -29,6 +30,8 @@ enum class DiLinkGeneration(val key: String) {
          */
         fun detect(product: String?, fingerprint: String?, display: String?, sdkInt: Int,
                    controllerVersion: String? = null): Detection {
+            if (fingerprint?.startsWith("AAOP_COCKPIT/") == true)
+                return Detection(ARCFOX_T, Source.SYSTEM_VERSION, fingerprint)
             for (value in listOf(product, fingerprint, display)) {
                 val match = value?.let(VERSION::find) ?: continue
                 val generation = when (match.groupValues[1]) {
@@ -62,15 +65,13 @@ enum class DiLinkGeneration(val key: String) {
             method.invoke(null, CONTROLLER_VERSION_PROPERTY, "")?.toString()
         }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
 
-        private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-        fun confirmed(context: Context): DiLinkGeneration? = fromKey(prefs(context).getString(KEY, null))
+        fun confirmed(context: Context): DiLinkGeneration? = fromKey(VehicleProfiles.confirmed(context)?.key)
 
         /** The driver's confirmed choice, or the detected generation when they have not picked one. */
         fun current(context: Context): DiLinkGeneration = confirmed(context) ?: detect().generation
 
         fun save(context: Context, generation: DiLinkGeneration) {
-            prefs(context).edit().putString(KEY, generation.key).apply()
+            VehicleProfiles.save(context, VehicleProfile.fromKey(generation.key) ?: VehicleProfile.UNKNOWN)
         }
     }
 }

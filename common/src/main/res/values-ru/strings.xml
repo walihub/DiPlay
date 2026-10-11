@@ -683,15 +683,15 @@
     <string name="settings_background_update_checks">Проверять обновления в фоне</string>
     <string name="settings_background_update_checks_description">Раз в сутки DiPlay проверяет GitHub на новую версию и показывает её на главном экране. Загрузка начинается только после вашего нажатия.</string>
     <string name="setup_guide">Мастер настройки</string>
-    <string name="setup_guide_description">Определите версию DiLink, выберите подключение и включите функции, подходящие вашему автомобилю.</string>
+    <string name="setup_guide_description">Определите систему автомобиля, выберите подключение и нужные функции.</string>
     <string name="setup_step_of">ШАГ %1$d ИЗ %2$d</string>
     <string name="setup_skip">Пропустить настройку</string>
     <string name="setup_next">Далее</string>
     <string name="setup_car_title">Ваш автомобиль</string>
     <string name="setup_car_detected">В версии системы найдено: %1$s. Измените, если это неверно.</string>
     <string name="setup_car_likely">Похоже на %1$s. Подтвердите.</string>
-    <string name="setup_car_unknown">DiPlay не удалось определить версию DiLink. Выберите её ниже или оставьте «Не уверен».</string>
-    <string name="setup_car_choose">Версия DiLink</string>
+    <string name="setup_car_unknown">DiPlay не смог определить версию системы. Выберите ниже или оставьте «Не уверен».</string>
+    <string name="setup_car_choose">Версия системы автомобиля</string>
     <string name="setup_car_evidence">Версия системы: %1$s</string>
     <string name="dilink_3">DiLink 3</string>
     <string name="dilink_4">DiLink 4</string>
@@ -766,4 +766,9 @@
     <string name="settings_ambient_unavailable">Проверка без записи не пройдена: нет существующей авторизации ADB или подходящего интерфейса. Настройки не сохранены. Настройте доступ отдельно на стоянке; функция не включает ADB и не запрашивает авторизацию.</string>
     <string name="settings_ambient_album">Цвет обложки альбома</string>
     <string name="settings_ambient_album_description">Цвет обложки приближённо сопоставляется с доступными цветами автомобиля. Для серой, чёрной или отсутствующей обложки используются все 31 цвет; для преимущественно белой — белый или холодный белый.</string>
+    <string name="settings_vehicle_profile_reconnect">Настройки автомобиля применяются при следующем подключении CarPlay.</string>
+    <string name="settings_arcfox_profile_summary">ARCFOX T использует карту и безопасную область приборной панели, карточку навигации, HUD, масштабирование с руля, музыку, звонки, голос и значок ARCFOX. Выбранные аудиоканалы сохраняются.</string>
+    <string name="settings_arcfox_safe_area_hint">Область по умолчанию: 920×610; отступы по 500 слева и справа, 80 сверху и 30 снизу. Перетащите зеленые границы и сохраните для следующего подключения CarPlay. Сброс восстанавливает эту область.</string>
+    <string name="settings_arcfox_safe_area_live_hint">Измените зеленые границы в предпросмотре. Сохраните и переподключите CarPlay для применения.</string>
+    <string name="settings_arcfox_t">ARCFOX T</string>
 </resources>
