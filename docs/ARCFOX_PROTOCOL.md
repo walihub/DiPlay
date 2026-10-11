@@ -512,3 +512,10 @@ ArcfoxClusterDisplay 固定安全区域、ArcfoxWheelZoom/Hidl、ArcfoxHudSync�
 验证：AGENTS.md 的完整 CI 通过（5 分 4 秒）；shared 1307、common 1113、home 4 项，共 2424 项，跳过 1 项，无失败。mobile/home/maphost 的 lintDebug 和 assembleDebug 全部通过。新增回归覆盖非极狐车型空适配/语音键不注册、极狐音频条件选择；断连菜单回归改为验证生命周期事件送达适配器。公开源码凭据检查与 diff --check 通过。实体车机目前未连接，以上结果不能代替实车仪表、HUD、方向盘和音频测试。
 
 发布构建：`:mobile:verifyStandaloneAuthentication :mobile:assembleRelease` 通过（2 分 14 秒）。APK 为 `build/arcfox-release/DiPlay-0.2.17-Arcfox-Adapter-system.apk`，versionName=0.2.17、versionCode=36，SHA-256 `2f7bd394b8c16548440c33bffe84484080821dd9e725b6abcefcfdc222f9e873`。系统签名证书 SHA-256 仍为 `c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8`，apksigner 验证通过。认证资源与经官方 SHA256SUMS 核验的 0.2.17 发布包字节一致；DEX 核验确认极狐适配/HIDL 回调类存在，四个 android.os 编译桩类定义未打入 APK。本轮没有安装、修改原车 APK 或推送远程。
+
+
+### 2026-10-11：CarPlay 默认极狐品牌图标
+
+从用户指定的本地 `ARCFOX_3.4.32_三功能_车钥匙综合优化_v1.3_登录007修复.apk` 提取 application-icon-640 对应 `res/Ryj.png`，原样保存为 `common/src/main/res/raw/ic_car_home_arcfox.png`（SHA-256 `4851b49030194dba9f53a73a29d23ee62ff74550c30465297702f9b0b0f01b77`）。蓝底白色极狐标志不重新绘制或裁剪。`VehicleBranding` 对 AAOP_COCKPIT 固件选择该资源；其他车型保持原图标，自定义图标优先。CarPlay 返回车机按钮和设置默认预览采用同一车型策略，旧宿主预览也在极狐车机显示该图标。图标随下一次 CarPlay 连接的 /info 发布；无需改变认证或主应用桌面图标。
+
+本次完整 AGENTS.md CI 通过；系统签名 release 与 verifyStandaloneAuthentication 通过。新包 `build/arcfox-release/DiPlay-0.2.17-Arcfox-Icon-system.apk`，SHA-256 `74411f3f1c8d9fa0793b40f5d3a3b25633ed2e21f756e62da3a56904e9d49ba7`，签名证书保持前述系统证书，认证资源与官方 0.2.17 字节一致。资源表 raw/ic_car_home_arcfox 指向经构建工具缩短名称的 res/tp.png，实际打包图片与参考 APK 原图字节一致。极狐适配类与 HIDL 回调存在，四个编译桩类定义不在 APK 中。此次安装尝试报告 device offline，图标更新尚未安装；重新连接 CarPlay 后才能确认实体显示。

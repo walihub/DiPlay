@@ -2,6 +2,8 @@
 // UI copy and visual language adapted from DiAuto. See docs/THIRD_PARTY_NOTICES.md.
 package com.shilapi.xcertplay
 
+import com.shilapi.xcertplay.vehicle.VehicleBranding
+
 import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterDisplay
 import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterLink
 
@@ -4658,7 +4660,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         val custom = AirPlayPersistence.loadCustomAirPlayIconFile(this)?.let { BitmapFactory.decodeFile(it.absolutePath) }
         val preview = row().apply { gravity = Gravity.CENTER_VERTICAL }
         preview.addView(ImageView(this).apply {
-            setImageBitmap(custom ?: BitmapFactory.decodeResource(resources, R.raw.ic_car_home))
+            setImageBitmap(custom ?: BitmapFactory.decodeResource(resources, VehicleBranding.carHomeIcon()))
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = rounded(SURFACE, BORDER)
             clipToOutline = true
