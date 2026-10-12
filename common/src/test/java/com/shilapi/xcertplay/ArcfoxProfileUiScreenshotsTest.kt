@@ -57,7 +57,7 @@ class ArcfoxProfileUiScreenshotsTest {
                 ReflectionHelpers.setField(activity, "settingsSectionFilter", setOf(SettingsSection.CLUSTER_MAP))
                 ReflectionHelpers.callInstanceMethod<Unit>(activity, "allSettingsSections",
                     ReflectionHelpers.ClassParameter.from(LinearLayout::class.java, root))
-                assertTrue(descendants(root).filterIsInstance<TextView>().any { it.text.contains("920") && it.text.contains("610") })
+                assertTrue(descendants(root).filterIsInstance<TextView>().any { it.text.contains("920") && it.text.contains("432") })
                 val pxWidth = (width * activity.resources.displayMetrics.density).toInt()
                 root.measure(View.MeasureSpec.makeMeasureSpec(pxWidth, View.MeasureSpec.EXACTLY),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
