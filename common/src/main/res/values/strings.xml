@@ -872,4 +872,6 @@
     <string name="settings_arcfox_safe_area_hint">Default region: 920×610, with 500 left/right, 80 top and 30 bottom. Drag the green edges; save for the next CarPlay connection. Reset restores this region.</string>
     <string name="settings_arcfox_safe_area_live_hint">Adjust the green edges in this preview. Save and reconnect CarPlay to apply the region.</string>
     <string name="settings_arcfox_t">ARCFOX T</string>
+    <string name="settings_cluster_navigation_only">Only show the cluster map during navigation</string>
+    <string name="settings_cluster_navigation_only_description">Show the map on the instrument cluster when iPhone navigation starts; hide it when navigation ends or CarPlay disconnects. ARCFOX defaults to on. Changes apply immediately.</string>
 </resources>

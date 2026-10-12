@@ -248,6 +248,13 @@ class CarPlayController(
         synchronized(albumReplayLock) { initialArtworkReplay?.takeIf { id != null && it.id == id } }
 
 
+    private val navigationState = com.shilapi.xcertplay.navigation.CarPlayNavigationState()
+    /** Changes originate from the current iAP2 control channel; UI callbacks read the latest snapshot. */
+    @Volatile var navigationListener: ((Boolean) -> Unit)? = null
+    fun navigationActiveSnapshot(): Boolean = navigationState.snapshot()
+    fun refreshNavigationDisplay() { navigationListener?.invoke(navigationState.snapshot()) }
+    private fun clearNavigationDisplay() { navigationState.clear()?.let { navigationListener?.invoke(it) } }
+
     /** Told when the iPhone starts or stops playing media; may run on any thread. */
     @Volatile var playbackListener: ((Boolean) -> Unit)? = null
 
@@ -345,6 +352,7 @@ class CarPlayController(
         override fun onSessionEnded(session: AirPlaySession) {
             if (activeSession === session) {
                 activeSession = null
+                clearNavigationDisplay()
                 synchronized(albumReplayLock) { initialArtworkReplay = null }
                 BydNavigationOutputs.endNow(preserveTurnOverlay = !closed && config.transport == CarPlayTransport.WIRELESS)
                 vehicleAdapter.onSessionEnded()
@@ -640,6 +648,7 @@ class CarPlayController(
         videoGate?.close()
         BydNavigationOutputs.endNow()
         vehicleAdapter.onSessionEnded()
+        clearNavigationDisplay()
         com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(false)
         BydNavigationOutputs.clearClusterStreamControl(::applyClusterUi)
         closeReceivers()
@@ -780,6 +789,7 @@ class CarPlayController(
 
     // HUD (SOME/IP) and cluster (AMap broadcast) keep separate state so one failing cannot stall the other.
     private fun onRouteFrame(frame: com.shilapi.xcertplay.iap2.wire.Iap2Frame, currentControl: Boolean = true) {
+        if (!closed && currentControl) navigationState.accept(frame)?.let { navigationListener?.invoke(it) }
         BydNavigationOutputs.onFrame(frame)
         vehicleAdapter.onNavigation(frame, !closed && currentControl)
         com.shilapi.xcertplay.glance.CarPlayGlance.onFrame(frame)

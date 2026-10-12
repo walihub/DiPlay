@@ -831,4 +831,6 @@
     <string name="settings_arcfox_safe_area_hint">默认区域 920×610：左右各留 500、上方 80、下方 30。拖动绿色边界，保存后在下次 CarPlay 连接时生效；重置恢复该默认区域。</string>
     <string name="settings_arcfox_safe_area_live_hint">在预览中拖动绿色边界调整区域，保存并重新连接 CarPlay 后生效。</string>
     <string name="settings_arcfox_t">极狐 T</string>
+    <string name="settings_cluster_navigation_only">仅导航时投屏</string>
+    <string name="settings_cluster_navigation_only_description">iPhone 开始导航时显示仪表地图，结束导航或断开 CarPlay 后隐藏。极狐默认开启，修改立即生效。</string>
 </resources>

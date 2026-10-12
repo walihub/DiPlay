@@ -783,4 +783,6 @@
     <string name="settings_arcfox_safe_area_hint">Типова область: 920×610; відступи по 500 ліворуч і праворуч, 80 зверху та 30 знизу. Перетягніть зелені межі й збережіть для наступного підключення CarPlay. Скидання відновлює цю область.</string>
     <string name="settings_arcfox_safe_area_live_hint">Змініть зелені межі у перегляді. Збережіть і знову підключіть CarPlay для застосування.</string>
     <string name="settings_arcfox_t">ARCFOX T</string>
+    <string name="settings_cluster_navigation_only">Карта панелі приладів лише під час навігації</string>
+    <string name="settings_cluster_navigation_only_description">Карта з’являється на початку навігації на iPhone та приховується після її завершення або від’єднання CarPlay. В ARCFOX увімкнено типово. Зміни застосовуються одразу.</string>
 </resources>

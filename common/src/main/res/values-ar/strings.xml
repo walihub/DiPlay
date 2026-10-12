@@ -771,4 +771,6 @@
     <string name="settings_arcfox_safe_area_hint">المنطقة الافتراضية 920×610: هامش 500 يمينا ويسارا و80 أعلى و30 أسفل. اسحب الحواف الخضراء واحفظ لتطبيقها عند اتصال CarPlay التالي. إعادة الضبط تستعيد هذه المنطقة.</string>
     <string name="settings_arcfox_safe_area_live_hint">اضبط الحواف الخضراء في المعاينة. احفظ وأعد اتصال CarPlay لتطبيق المنطقة.</string>
     <string name="settings_arcfox_t">ARCFOX T</string>
+    <string name="settings_cluster_navigation_only">عرض خريطة العدادات أثناء الملاحة فقط</string>
+    <string name="settings_cluster_navigation_only_description">تظهر خريطة العدادات عند بدء الملاحة على iPhone وتختفي عند انتهائها أو فصل CarPlay. مفعّل افتراضيًا في ARCFOX. تُطبّق التغييرات فورًا.</string>
 </resources>

@@ -744,6 +744,13 @@ object AirPlayPersistence {
         edit.apply()
     }
 
+    fun loadClusterNavigationOnly(context: Context, arcfoxDefault: Boolean = ArcfoxClusterDisplay.isVehicle(context)): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("cluster_navigation_only", arcfoxDefault)
+
+    fun saveClusterNavigationOnly(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("cluster_navigation_only", enabled).apply()
+    }
+
     fun saveClusterMapEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CLUSTER_MAP, enabled).apply()
     }

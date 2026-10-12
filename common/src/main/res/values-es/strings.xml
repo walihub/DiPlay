@@ -771,4 +771,6 @@
     <string name="settings_arcfox_safe_area_hint">Área predeterminada: 920×610, con 500 a cada lado, 80 arriba y 30 abajo. Arrastra los bordes verdes y guarda para la próxima conexión de CarPlay. Restablecer recupera esta área.</string>
     <string name="settings_arcfox_safe_area_live_hint">Ajusta los bordes verdes en la vista previa. Guarda y vuelve a conectar CarPlay para aplicar el área.</string>
     <string name="settings_arcfox_t">ARCFOX T</string>
+    <string name="settings_cluster_navigation_only">Mostrar el mapa del cuadro solo durante la navegación</string>
+    <string name="settings_cluster_navigation_only_description">Muestra el mapa del cuadro al iniciar la navegación del iPhone y lo oculta al terminar o desconectar CarPlay. Activado por defecto en ARCFOX. Los cambios se aplican de inmediato.</string>
 </resources>

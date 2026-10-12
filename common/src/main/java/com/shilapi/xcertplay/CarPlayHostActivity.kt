@@ -355,6 +355,24 @@ class CarPlayHostActivity : ComponentActivity() {
     private var arcfoxSessionProfile: Boolean? = null
     private fun arcfoxVehicleProfile(): Boolean = arcfoxSessionProfile ?: ArcfoxClusterDisplay.isVehicle(this)
     private val vehicleCluster by lazy { vehicleClusterAdapter(this) }
+    private var navigationVisibilityOwner: CarPlayController? = null
+    private val navigationVisibilityListener: (Boolean) -> Unit = {
+        runOnUiThread {
+            if (!isDestroyed && !shuttingDown.get() && navigationVisibilityOwner === controller)
+                ensureClusterPresentation()
+        }
+    }
+    private fun bindClusterNavigation(next: CarPlayController?) {
+        navigationVisibilityOwner?.let {
+            if (it.navigationListener === navigationVisibilityListener) it.navigationListener = null
+        }
+        navigationVisibilityOwner = next
+        next?.navigationListener = navigationVisibilityListener
+    }
+    private fun clusterNavigationVisible(): Boolean =
+        !AirPlayPersistence.loadClusterNavigationOnly(this, arcfoxVehicleProfile()) ||
+            controller?.navigationActiveSnapshot() == true
+
     private var clusterTurnGuidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance? = null
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
         runOnUiThread {
@@ -1066,7 +1084,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun ensureClusterPresentation() {
-        if (!AirPlayPersistence.loadClusterMapEnabled(this)) {
+        if (!AirPlayPersistence.loadClusterMapEnabled(this) || !clusterNavigationVisible()) {
             dismissClusterPresentation()
             return
         }
@@ -1534,6 +1552,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        bindClusterNavigation(null)
         vehicleCluster.release()
         resetSidePanel()
         releaseSidePanelEffects()
@@ -4842,6 +4861,8 @@ class CarPlayHostActivity : ComponentActivity() {
         controller = snapshot.controller
         updateClusterMapShown()
         sink = snapshot.sink
+        bindClusterNavigation(snapshot.controller)
+        if (AirPlayPersistence.loadClusterNavigationOnly(this, arcfoxVehicleProfile())) ensureClusterPresentation()
         sessionDisplay = snapshot.display
         resetSidePanel()
         if (snapshot.display.viewAreas?.let { it.kindOf(it.current) == CarPlayViewAreas.Kind.SIDE_PANEL } == true) {
@@ -4982,6 +5003,8 @@ class CarPlayHostActivity : ComponentActivity() {
             },
         )
         controller = next
+        bindClusterNavigation(next)
+        if (AirPlayPersistence.loadClusterNavigationOnly(this, arcfoxVehicleProfile())) ensureClusterPresentation()
         resetSidePanel() // a new session starts without the side panel
         updateClusterMapShown()
         CarPlayMediaKeys.attach(this, next)

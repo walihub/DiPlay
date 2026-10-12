@@ -1911,6 +1911,12 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 AirPlayPersistence.saveClusterMapEnabled(this, it)
                 render()
             }
+            toggle(card, getString(R.string.settings_cluster_navigation_only),
+                getString(R.string.settings_cluster_navigation_only_description),
+                AirPlayPersistence.loadClusterNavigationOnly(this)) {
+                AirPlayPersistence.saveClusterNavigationOnly(this, it)
+                CarPlayBackgroundSession.snapshot()?.controller?.refreshNavigationDisplay()
+            }
             if (arcfoxProfile) clusterSafeAreaControls(card)
             if (clusterMapEnabled) {
                 toggle(card, getString(R.string.center_map_card),

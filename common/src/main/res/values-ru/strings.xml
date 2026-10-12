@@ -771,4 +771,6 @@
     <string name="settings_arcfox_safe_area_hint">Область по умолчанию: 920×610; отступы по 500 слева и справа, 80 сверху и 30 снизу. Перетащите зеленые границы и сохраните для следующего подключения CarPlay. Сброс восстанавливает эту область.</string>
     <string name="settings_arcfox_safe_area_live_hint">Измените зеленые границы в предпросмотре. Сохраните и переподключите CarPlay для применения.</string>
     <string name="settings_arcfox_t">ARCFOX T</string>
+    <string name="settings_cluster_navigation_only">Карта приборной панели только при навигации</string>
+    <string name="settings_cluster_navigation_only_description">Карта появляется при начале навигации на iPhone и скрывается при её завершении или отключении CarPlay. В ARCFOX включено по умолчанию. Изменения применяются сразу.</string>
 </resources>

@@ -53,7 +53,9 @@ class ArcfoxProfileUiScreenshotsTest {
                 assertTrue(choices.single { it.text.contains(activity.getString(R.string.settings_arcfox_t)) }
                     .text.startsWith("✓"))
                 assertNull("Automatic detection must not require saving a choice", VehicleProfiles.confirmed(activity))
-                ReflectionHelpers.callInstanceMethod<Unit>(activity, "clusterSafeAreaControls",
+                AirPlayPersistence.saveClusterMapEnabled(activity, false)
+                ReflectionHelpers.setField(activity, "settingsSectionFilter", setOf(SettingsSection.CLUSTER_MAP))
+                ReflectionHelpers.callInstanceMethod<Unit>(activity, "allSettingsSections",
                     ReflectionHelpers.ClassParameter.from(LinearLayout::class.java, root))
                 assertTrue(descendants(root).filterIsInstance<TextView>().any { it.text.contains("920") && it.text.contains("610") })
                 val pxWidth = (width * activity.resources.displayMetrics.density).toInt()
@@ -66,7 +68,7 @@ class ArcfoxProfileUiScreenshotsTest {
                 root.draw(Canvas(bitmap))
                 val working = Paths.get(System.getProperty("user.dir")).toAbsolutePath()
                 val module = if (working.fileName.toString() == "common") working else working.resolve("common")
-                val output = module.resolve("build/reports/arcfox-profile-ui/$locale-${width}dp-$density-font1.5.png")
+                val output = module.resolve("build/reports/cluster-navigation-ui/$locale-${width}dp-$density-font1.5.png")
                 Files.createDirectories(output.parent)
                 Files.newOutputStream(output).use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
                 bitmap.recycle()
