@@ -11,7 +11,15 @@ import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxMusicSync
 /** Extra instrument metadata and ROM media recovery, separate from the Android media session. */
 internal object VehicleMediaAdapter {
     @Volatile private var profileEnabled = false
-    fun onSessionStarted(context: Context) { profileEnabled = VehicleProfiles.isArcfox(context) }
+    private var musicOwner: com.shilapi.xcertplay.vehicle.arcfox.ArcfoxMediaArbitrator? = null
+    fun onSessionStarted(context: Context, controller: com.shilapi.xcertplay.orchestration.CarPlayController) {
+        profileEnabled = VehicleProfiles.isArcfox(context)
+        if (profileEnabled && VehicleIdentity.isArcfox())
+            musicOwner = com.shilapi.xcertplay.vehicle.arcfox.ArcfoxMediaArbitrator(context.applicationContext) {
+                com.shilapi.xcertplay.CarPlayMediaKeys.pauseForVehicleMusic(controller)
+            }
+    }
+    fun onCarPlayMusicStarted() { musicOwner?.carPlayStarted() }
     fun onNowPlaying(context: Context, update: CarPlayNowPlaying) {
         if (profileEnabled) ArcfoxMusicSync.update(context, update)
     }
@@ -19,6 +27,8 @@ internal object VehicleMediaAdapter {
         if (profileEnabled) ArcfoxMusicSync.artwork(context, id, bytes, update)
     }
     fun onSessionEnded(context: Context?) {
+        musicOwner?.close()
+        musicOwner = null
         ArcfoxMusicSync.clear(context)
         profileEnabled = false
     }

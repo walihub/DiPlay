@@ -27,6 +27,9 @@ internal object ArcfoxHudSync {
     internal data class Guidance(val icon: Int, val distance: Int, val road: String, val bar: Int = 0)
 
     private val sessions = ArcfoxHudSessionGate()
+    private var sourceClient: HudSourceClient? = null
+    private var retainedGuidance: Guidance? = null
+    private val navigationState = com.shilapi.xcertplay.navigation.CarPlayNavigationState()
     private val route = BydHudRouteState(retainWhileSessionAlive = sessions::isAlive)
     private val worker = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "diplay-arcfox-hud").apply { isDaemon = true }
@@ -107,7 +110,10 @@ internal object ArcfoxHudSync {
                 // Retire only a verifiably matching previous output, then start with a fresh
                 // cache. A skipped old clear must not prevent this explicit new session.
                 operationSession = token
-                transmit(null)
+                sourceClient?.close()
+                sourceClient = context?.let { HudSourceClient(it) }
+                navigationState.clear()
+                retainedGuidance = null
                 route.clear()
                 writer.resume()
                 appliedSession = token
@@ -131,6 +137,7 @@ internal object ArcfoxHudSync {
             } else if (frame.messageId == BydHudRouteState.ROUTE_GUIDANCE_MANEUVER_UPDATE) {
                 maneuverFrames++; lastManeuverAt = System.currentTimeMillis()
             }
+            navigationState.accept(frame)
             route.accept(frame.messageId, frame.payload)
             publish(token)
         }
@@ -189,14 +196,14 @@ internal object ArcfoxHudSync {
     }
 
     private fun transmit(next: Guidance?, keepAlive: Boolean = false) {
-        try {
-            if (writer.transmit(next, keepAlive)) event("write_ok active=${next != null} icon=${next?.icon ?: 0}")
-        } catch (error: Exception) {
-            propertyManager = null
-            val cause = (error as? java.lang.reflect.InvocationTargetException)?.targetException ?: error
-            event("write_failed stage=$writeStage cause=${cause.javaClass.simpleName}")
-            Log.w(TAG, "HUD output unavailable stage=$writeStage", error)
-        }
+        val active = sessions.isAlive() && navigationState.snapshot()
+        val client = sourceClient ?: return
+        if (!active) retainedGuidance = null else if (next != null) retainedGuidance = next
+        val guidance = retainedGuidance
+        client.update(active, guidance?.icon ?: 0, guidance?.distance ?: 0, guidance?.bar ?: 0,
+            guidance?.road?.let(::roadPacket))
+        writeStage = "arbiter_submission"
+        if (!active && sessions.isEnded()) { client.close(); sourceClient = null }
     }
 
     /** Equality is a best-effort guard, not a vehicle-provided ownership token. */

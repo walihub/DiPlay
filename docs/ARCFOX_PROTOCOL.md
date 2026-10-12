@@ -551,3 +551,31 @@ ArcfoxClusterDisplay 固定安全区域、ArcfoxWheelZoom/Hidl、ArcfoxHudSync�
 回归覆盖极狐/其他车型默认值、显式覆盖、导航状态/空列表/取消/到达/断开/非法帧，仪表窗口显示撤下与禁用限制后恢复，以及总开关优先级。大字体窄屏、高密度、宽屏及阿拉伯语截图位于 `common/build/reports/cluster-navigation-ui/`。实车仍需确认iPhone导航应用实际发出的活动状态及原车图层恢复行为。
 
 本次完整 CI 已通过：shared 1312项，0失败，1跳过；common 1119项，0失败，0跳过；home 0项，0失败，0跳过。mobile/home/maphost的Lint及debug APK构建均成功。
+
+### 2026-10-12：音乐互斥、Siri 压低和三方 HUD 仲裁
+
+共存高德的具体修改、基准包与重建方式见 [ARCFOX_GAODE_HUD_PATCH.md](ARCFOX_GAODE_HUD_PATCH.md)。导航输出/路线互斥及画中画场景的后续方案见 [ARCFOX_NAVIGATION_ARBITRATION_PLAN.md](ARCFOX_NAVIGATION_ARBITRATION_PLAN.md)，用户明确要求本次只记录，不实施。
+
+本节替代前文 DiPlay / 共存高德各自直接写 HUD、各自保活的竞争策略。用户确认统一修改 DiPlay、NaviService、共存高德，沿用前台导航优先。原生高德 APK 不修改；其经过 NaviService 的 HUD 请求在原服务内截获。
+
+音乐策略仅在选中极狐且真实固件指纹为 AAOP_COCKPIT/ 时启用，不更改媒体/导航/语音通道、认证或其他车型行为。Siri 麦克风或语音下行活动时，仍收到的音乐 PCM 相对音量降为20%，语音结束恢复；不会为了混音强制向 iPhone 发送播放。iPhone 自己暂停音乐或停止发送 PCM 时，Android 端不能恢复不存在的数据，需要实车确认 Siri 的播放器状态。
+
+`ArcfoxMediaArbitrator` 使用系统签名权限 MEDIA_CONTENT_CONTROL 观察实际音乐 MediaSession 的未播放→播放变化。CarPlay 新开始播放时暂停其他支持 ACTION_PAUSE 的音乐会话；原车音乐新开始时发送 CarPlay PAUSE 并抑制残留媒体音频。重复的播放状态/封面刷新不抢回焦点，焦点恢复不自动播放。初始化已播放会话仅作为基线。调用失败有日志；不提供 MediaSession 或不支持 PAUSE 的播放器仍依赖其系统焦点行为，不能仅凭此实现承诺所有第三方播放器一定暂停。
+
+HUD 由 NaviService 的 `local.arcfox.hud.HudArbiterService` 统一输出，三来源为原生 `com.autonavi.amapauto`、共存 `com.autonavi.amaparcfox`、DiPlay `com.shihab.diplay`。前台且导航有效的来源优先；非导航页面在前台时保留当前有效来源。当前来源结束后选择前台有效导航，否则选择最近启用/取得过所有权的有效来源。后台停止和清零仅更新该来源状态，不直接写车机。无来源时结束 HUD；有来源时每5秒重发所选数据，500ms检查前台变化。
+
+原生路径在 `VehicleSendQueue9.sendValue/sendValueNow/sendByteValue` 入队前截获，并在 `BaseCarManager.sendVehicleValue/sendVehicleByteValue` 再次拦截直接路径。仅拦截 HUD 状态、转向、距离、进度和道路包，不改其他车辆属性。原生状态仍按0=导航中、1=停止。原服务其他接口和系统 UID 保持。
+
+DiPlay 和共存高德只通过 `HudSourceClient` 提交状态，不再作为独立物理 HUD 写入者。Binder descriptor 为 `arcfox.hud.sources.v1`，REGISTER(1) 取得会话代次，UPDATE(2) 携带递增序号和 active/icon/distance/bar/road Bundle；客户端每2秒提交最新状态。入口受 CAR_VENDOR_EXTENSION 保护，并核对调用 UID 的包名及与服务一致的签名。新代次替代旧代次；重复/倒序消息、旧代次和旧客户端死亡不能影响新代次。调用失败解绑后重新注册；服务不在时不回退到抢占式直接写 HUD。
+
+物理写入和三方状态处理在同一串行队列执行，每次写入前根据最新状态选主，避免待处理旧来源消息清除新来源。导航有效但暂时缺少详情时保留该来源最后有效提示；来源结束清除其缓存。道路包仍用既有 GBK 格式，道路写入错误记录日志，不阻断状态和箭头。前台获取依赖原车系统权限/隐藏任务接口，车机实际授权、原生状态语义和服务启动恢复须实车验证。
+
+三包必须配套更新。共存以用户指定 v24 气泡缩放1.2包为基准，仅 classes26.dex 变化，其他 payload 字节保持；没有改原生高德 APK。NaviService 基于本地提取 V01.01.05（versionCode2），适配包 versionName V01.01.05-HudArbiter1、versionCode3。工具和服务源在 `tools/arcfox-hud/`；输入解码目录为 `build/hud-arbitration/naviservice-base`，apktool framework为同目录 `framework/1.apk`；构建工具、SDK、原共存代码及系统签名使用本机 arcfox 工程的路径。系统签名沿用已有证书。
+
+验证包含原焦点回归、多SDK Siri压低/恢复、原车夺取时不误恢复音乐、真实 MediaController 暂停行为、仲裁选择、Binder 身份和代次/序号/死亡回调隔离。完整 AGENTS.md CI、release认证资源与系统签名验证须通过后交付。尚未安装三个新包，没有改动车机，软件测试不能代替实车音频与 HUD 验证。
+
+最终完整 CI 已通过（3分48秒）：shared1321项、common1126项、home0项，共2447项，0失败、1跳过；三个模块Lint和debug构建成功。系统签名release与verifyStandaloneAuthentication通过（35秒）。DiPlay认证资源与官方0.2.17字节一致，新适配类存在、四个HIDL编译桩和测试用NaviService类未进入生产DEX。重打包后的NaviService已反编译核对onCreate初始化和五个拦截入口，其classes2.dex与实际编译服务DEX一致。三个APK的SHA256及验证记录在build/arcfox-release/Arcfox-Media-HudArbiter1-validation.json；包均未安装，实车未验证。
+
+### 2026-10-13：仪表默认布局中心调整
+
+极狐默认安全区域改为 `(500,288)-(1420,720)`，尺寸920×432，中心 `(960,504)`，即1920×720屏幕中心下方144像素。完整视频画布仍为1920×720，`viewArea=null`，并允许在安全区域外绘制；已保存的极狐自定义安全区域优先，不迁移或覆盖。此变更使默认安全区域中心从代码实际值 `(960,385)` 下移119像素；与早先讨论但未写入代码的目标 `(960,540)` 相比则上移36像素。CarPlay车标最终布局由iPhone导航应用决定，实车效果待验证。

@@ -285,6 +285,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     // The full-window viewport stays independent of the letterboxed SurfaceView dimensions.
     private var videoView: View? = null
+    private var videoBackground: View? = null
     private var fallbackVideoView: SurfaceView? = null
     private var fallbackVideoBounds: CarPlaySurfaceBounds? = null
     // Smooth video (a setting): SurfaceView output with frames released at the iPhone's frame time.
@@ -1084,8 +1085,18 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun ensureClusterPresentation() {
-        if (!AirPlayPersistence.loadClusterMapEnabled(this) || !clusterNavigationVisible()) {
+        if (!AirPlayPersistence.loadClusterMapEnabled(this)) {
             dismissClusterPresentation()
+            return
+        }
+        if (!clusterNavigationVisible()) {
+            // Arcfox's navigation-only policy hides the physical map without destroying its
+            // decoder surface. Recreating that surface for every route also tears down the
+            // steering-wheel target just as navigation starts again.
+            if (arcfoxVehicleProfile() && !AdbClusterRouter.enabled(this)) {
+                clusterPresentation?.setMapVisible(false)
+                updateClusterMapShown()
+            } else dismissClusterPresentation()
             return
         }
         if (AdbClusterRouter.enabled(this)) {
@@ -1103,7 +1114,13 @@ class CarPlayHostActivity : ComponentActivity() {
             ensureDiLink51ClusterPresentation(theme)
             return
         }
-        if (clusterPresentation != null) return
+        clusterPresentation?.let {
+            if (arcfoxVehicleProfile() && !it.mapVisible) {
+                it.setMapVisible(true)
+                updateClusterMapShown()
+            }
+            return
+        }
         val display = ClusterMapPresentation.findDisplay(this, theme) ?: run {
             appendLog("Cluster map: no cluster projection display among ${ClusterMapPresentation.describeDisplays(this)}")
             return
@@ -1517,7 +1534,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     // The dashboard map pause must not stop the stream while a copy of the map is on screen.
     private fun updateClusterMapShown() {
-        com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapShown((clusterPresentation != null ||
+        com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapShown((clusterPresentation?.mapVisible == true ||
             (ClusterActivityOutput.hasConfirmedRoute() && clusterSurface != null)) && !MapMirrors.any)
         // Wheel zoom needs a physical map; centre-screen copies must not suppress that eligibility.
         val surface = clusterSurface?.takeIf { it.isValid }
@@ -1595,7 +1612,8 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun buildContentView(): View {
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val root = FrameLayout(this).apply { setBackgroundColor(DiPlayPalette.of(appNight).background) }
+        videoBackground = root
         val video = TextureView(this).apply {
             isOpaque = false
             surfaceTextureListener = textureListener
@@ -2385,6 +2403,7 @@ class CarPlayHostActivity : ComponentActivity() {
         val nextNight = resolveAppNightNow(darkMode)
         if (nextNight == appNight) return
         appNight = nextNight
+        videoBackground?.setBackgroundColor(DiPlayPalette.of(appNight).background)
 
         settingsMenu?.let { previous ->
             val parent = previous.parent as? ViewGroup ?: return@let

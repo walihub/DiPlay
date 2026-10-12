@@ -46,6 +46,8 @@ internal class AudioFocusCoordinator(
     private val muteMediaOnTransientLoss: Boolean = true,
     private val report: (String) -> Unit = {},
     private val vehicleAssistantFocus: Boolean = false,
+    private val vehicleMediaArbitration: Boolean = false,
+    private val vehicleSpeechActive: () -> Boolean = { false },
 ) {
     private data class Entry(val channel: AudioChannel, val attributes: AudioAttributes, var appliedVolume: Float = FULL_VOLUME)
 
@@ -54,6 +56,9 @@ internal class AudioFocusCoordinator(
     private var request: AudioFocusRequestCompat? = null
     private var requestedChannel: AudioChannel? = null
     private var mediaVolume = FULL_VOLUME
+    private var lastFocusChange = AudioManager.AUDIOFOCUS_GAIN
+    private var vehicleMediaBlocked = false
+    private var assistantTransient = false
     private var closed = false
     private var focusGeneration = 0L
     private var currentListener = listenerFor(focusGeneration)
@@ -74,25 +79,48 @@ internal class AudioFocusCoordinator(
                 return@synchronized
             }
             runCatching { report("Audio: focus change=$change activeTracks=${active.size}") }
-            when (change) {
-                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> setMediaVolume(DUCKED_VOLUME)
-                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                    if (muteMediaOnTransientLoss) {
-                        // This reports a temporary Android focus owner, not a confirmed call.
-                        Log.i(TAG, "Audio: muting media during transient focus loss")
-                        setMediaVolume(0f)
-                    }
-                }
-                AudioManager.AUDIOFOCUS_GAIN -> setMediaVolume(FULL_VOLUME)
-                // Keep CarPlay audio running on permanent loss. Some head units
-                // do not send a later gain callback after taking focus back.
-            }
+            applyFocusChange(change)
+        }
+    }
+
+    @Synchronized fun assistantActive(): Boolean = !closed && vehicleAssistantFocus &&
+        (active.values.any { it.channel == AudioChannel.ASSISTANT } || vehicleSpeechActive())
+
+    private fun applyFocusChange(change: Int, externalMedia: Boolean = false) {
+        lastFocusChange = change
+        if (vehicleMediaArbitration && externalMedia) {
+            assistantTransient = change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT && assistantActive()
+            if (change == AudioManager.AUDIOFOCUS_GAIN) vehicleMediaBlocked = false
+            else if (change == AudioManager.AUDIOFOCUS_LOSS && !assistantActive()) vehicleMediaBlocked = true
+        }
+        setMediaVolume(effectiveMediaVolume())
+    }
+
+    private fun effectiveMediaVolume(): Float = when {
+        vehicleMediaBlocked -> 0f
+        assistantActive() -> DUCKED_VOLUME
+        assistantTransient -> FULL_VOLUME
+        lastFocusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> DUCKED_VOLUME
+        lastFocusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT && muteMediaOnTransientLoss -> 0f
+        lastFocusChange == AudioManager.AUDIOFOCUS_GAIN -> FULL_VOLUME
+        else -> mediaVolume // Preserve upstream behavior outside the vehicle arbitration path.
+    }
+
+    @Synchronized fun assistantStateChanged() {
+        if (vehicleAssistantFocus && !closed) setMediaVolume(effectiveMediaVolume())
+    }
+
+    @Synchronized fun nativeMusicStarted() {
+        if (vehicleMediaArbitration && !closed) {
+            vehicleMediaBlocked = true
+            setMediaVolume(0f)
         }
     }
 
     @Synchronized
     fun acquire(track: AudioTrack, channel: AudioChannel, attributes: AudioAttributes) {
-        if (closed || (!enabled && !(vehicleAssistantFocus && channel == AudioChannel.ASSISTANT)) ||
+        if (closed || (!enabled && !(vehicleAssistantFocus && channel == AudioChannel.ASSISTANT) &&
+                !(vehicleMediaArbitration && channel == AudioChannel.MEDIA)) ||
             manager == null || channel == AudioChannel.NAVIGATION) return
         active[track] = Entry(channel, attributes)
         refreshRequest()
@@ -105,6 +133,10 @@ internal class AudioFocusCoordinator(
     }
 
     fun onExternalFocusChange(change: Int) {
+        if (vehicleMediaArbitration) {
+            synchronized(this) { if (!closed) applyFocusChange(change, externalMedia = true) }
+            return
+        }
         val current = synchronized(this) { currentListener }
         current.onAudioFocusChange(change)
     }
@@ -126,8 +158,21 @@ internal class AudioFocusCoordinator(
             val abandoned = request
             request = null
             requestedChannel = null
-            mediaVolume = FULL_VOLUME
+            mediaVolume = if (vehicleMediaBlocked) 0f else FULL_VOLUME
             manager?.let { abandoned?.abandon(it) }
+            return
+        }
+        // Arcfox music uses the media-key session's permanent request; do not create a second
+        // permanent owner that can steal focus back after a native player starts.
+        if (vehicleMediaArbitration && primary.channel == AudioChannel.MEDIA) {
+            if (request != null) {
+                focusGeneration += 1
+                val previous = request
+                request = null
+                requestedChannel = null
+                manager?.let { previous?.abandon(it) }
+            }
+            setMediaVolume(effectiveMediaVolume())
             return
         }
         if (request != null && requestedChannel == primary.channel) return
@@ -144,7 +189,8 @@ internal class AudioFocusCoordinator(
         request = next
         requestedChannel = primary.channel
         val result = manager?.let(next::request)
-        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) setMediaVolume(FULL_VOLUME)
+        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+            setMediaVolume(if (vehicleMediaArbitration) effectiveMediaVolume() else FULL_VOLUME)
         val line = "Audio: focus requested channel=${primary.channel} gain=$gain granted=$result activeTracks=${active.size}"
         Log.i(TAG, line)
         runCatching { report(line) }
@@ -226,13 +272,19 @@ class AndroidMediaSink(
         Build.FINGERPRINT.orEmpty() else ""
     private val ambientSinkToken = AmbientMusicController.openSink(appContext)
     private val audioManager = appContext?.getSystemService(AudioManager::class.java)
+    private val assistantMicrophones = ConcurrentHashMap.newKeySet<AudioStreamId>()
     private val audioFocusCoordinator = AudioFocusCoordinator(
         appContext,
         audioFocusEnabled,
         audioFocusAutoYield,
         onAudioDiagnostic,
         vehicleAssistantFocus = com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox(vehicleFingerprint),
+        vehicleMediaArbitration = com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox(vehicleFingerprint),
+        vehicleSpeechActive = { assistantMicrophones.isNotEmpty() },
     )
+
+    fun hasVehicleAssistantAudio(): Boolean = audioFocusCoordinator.assistantActive()
+    fun onVehicleNativeMusicStarted() = audioFocusCoordinator.nativeMusicStarted()
 
     /** The media-key session may own Android's current focus request for this same sink. */
     fun onMediaAudioFocusChanged(change: Int) {
@@ -527,6 +579,10 @@ class AndroidMediaSink(
     }
 
     override fun onMicrophoneStarted(id: AudioStreamId, config: MicrophoneConfig) {
+        if (config.audioType.equals("speechRecognition", ignoreCase = true)) {
+            assistantMicrophones.add(id)
+            audioFocusCoordinator.assistantStateChanged()
+        }
         // This callback runs on the downlink thread; microphone failures must not stop playback.
         try {
             val speakerphoneCall = config.audioType == "telephony" &&
@@ -538,6 +594,8 @@ class AndroidMediaSink(
                     echoReference = if (config.audioType == TELEPHONY_AUDIO_TYPE) callEchoReferences[id] else null)
             }
             if (!uplink.start()) {
+                assistantMicrophones.remove(id)
+                audioFocusCoordinator.assistantStateChanged()
                 microphoneUplinks.remove(id, uplink)
                 restoreAudioMode(id)
             }
@@ -549,6 +607,8 @@ class AndroidMediaSink(
     }
 
     override fun onMicrophoneStopped(id: AudioStreamId) {
+        assistantMicrophones.remove(id)
+        audioFocusCoordinator.assistantStateChanged()
         try {
             microphoneUplinks.remove(id)?.close()
         } finally {

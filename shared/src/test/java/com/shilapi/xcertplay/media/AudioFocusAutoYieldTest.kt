@@ -187,6 +187,52 @@ class AudioFocusAutoYieldTest {
         assertTrue(reports.last().contains("channel=MEDIA gain=1"))
     }
 
+    @Test fun arcfoxTracksMusicEvenWithExperimentalFocusOffAndDoesNotStealFocusBack() {
+        val coordinator = AudioFocusCoordinator(context, false, vehicleAssistantFocus = true,
+            vehicleMediaArbitration = true).also(coordinators::add)
+        val media = track()
+        coordinator.acquire(media, AudioChannel.MEDIA, attributes)
+        coordinator.onExternalFocusChange(AudioManager.AUDIOFOCUS_LOSS)
+        assertEquals(0f, volumes(media).last())
+        val second = track()
+        coordinator.acquire(second, AudioChannel.MEDIA, attributes)
+        assertEquals(0f, volumes(second).last())
+        coordinator.onExternalFocusChange(AudioManager.AUDIOFOCUS_GAIN)
+        assertEquals(1f, volumes(media).last())
+        assertEquals(1f, volumes(second).last())
+    }
+
+    @Test fun ownSiriDucksMusicDuringListeningAndRestoresItWithoutPausingOrChangingUserVolume() {
+        var speaking = false
+        val coordinator = AudioFocusCoordinator(context, false, vehicleAssistantFocus = true,
+            vehicleMediaArbitration = true, vehicleSpeechActive = { speaking }).also(coordinators::add)
+        val media = track()
+        coordinator.acquire(media, AudioChannel.MEDIA, attributes)
+        speaking = true
+        coordinator.assistantStateChanged()
+        coordinator.onExternalFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)
+        assertEquals(0.2f, volumes(media).last())
+        speaking = false
+        coordinator.assistantStateChanged()
+        assertEquals(1f, volumes(media).last())
+    }
+
+    @Test fun nativeMusicWinsEvenDuringSiriAndInternalSpeechGainCannotUnmuteThePhoneMusic() {
+        val coordinator = AudioFocusCoordinator(context, false, vehicleAssistantFocus = true,
+            vehicleMediaArbitration = true).also(coordinators::add)
+        val media = track(); val voice = track()
+        coordinator.acquire(media, AudioChannel.MEDIA, attributes)
+        coordinator.acquire(voice, AudioChannel.ASSISTANT, attributes)
+        coordinator.nativeMusicStarted()
+        coordinator.listener.onAudioFocusChange(AudioManager.AUDIOFOCUS_GAIN)
+        assertEquals(0f, volumes(media).last())
+        assertTrue(volumes(voice).isEmpty())
+        coordinator.release(voice)
+        assertEquals(0f, volumes(media).last())
+        coordinator.onExternalFocusChange(AudioManager.AUDIOFOCUS_GAIN)
+        assertEquals(1f, volumes(media).last())
+    }
+
     private fun coordinator(enabled: Boolean = true, autoYield: Boolean = true) =
         AudioFocusCoordinator(context, enabled, autoYield).also(coordinators::add)
     private fun track(): AudioTrack = AudioTrack.Builder().setAudioAttributes(attributes)

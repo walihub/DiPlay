@@ -1,9 +1,18 @@
+import org.gradle.kotlin.dsl.withGroovyBuilder
+
 plugins {
     id("com.android.library")
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
+    // Exercise the exact service code packaged into the matching NaviService update.
+    (sourceSets as org.gradle.api.NamedDomainObjectContainer<*>).getByName("test")
+        .withGroovyBuilder {
+            getProperty("java").withGroovyBuilder {
+                "srcDir"("../tools/arcfox-hud/service-src")
+            }
+        }
     namespace = "com.shilapi.xcertplay.host"
     compileSdk {
         version = release(37)

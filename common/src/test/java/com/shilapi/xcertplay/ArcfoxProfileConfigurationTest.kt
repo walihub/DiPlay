@@ -66,7 +66,7 @@ class ArcfoxProfileConfigurationTest {
         assertNull(config.viewArea)
         assertEquals(true, config.safeAreaDrawOutside)
         AirPlayPersistence.clearClusterSafeAreaRect(app)
-        assertEquals(SafeAreaRect(500, 80, 1420, 690), ArcfoxClusterDisplay.defaultSafeAreaRect())
+        assertEquals(SafeAreaRect(500, 288, 1420, 720), ArcfoxClusterDisplay.defaultSafeAreaRect())
         VehicleProfiles.save(app, VehicleProfile.DILINK_4)
         assertEquals(byd, AirPlayPersistence.loadClusterSafeAreaRect(app))
         assertTrue(AirPlayPersistence.loadAdbClusterEnabled(app))

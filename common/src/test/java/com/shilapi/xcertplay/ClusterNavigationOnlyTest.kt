@@ -33,7 +33,7 @@ class ClusterNavigationOnlyTest {
         assertFalse(AirPlayPersistence.loadClusterNavigationOnly(app))
     }
 
-    @Test fun physicalMapAppearsOnNavigationAndIsRemovedOnEndAndRestoredByDisablingThePolicy() {
+    @Test fun physicalMapIsRetainedButHiddenBetweenRoutesAndRestoredByDisablingThePolicy() {
         val app = RuntimeEnvironment.getApplication()
         ShadowBuild.setFingerprint("AAOP_COCKPIT/test")
         VehicleProfiles.save(app, VehicleProfile.ARCFOX_T)
@@ -61,11 +61,20 @@ class ClusterNavigationOnlyTest {
             assertTrue(shown.isShowing)
             `when`(controller.navigationActiveSnapshot()).thenReturn(false)
             visibilityChanged.invoke(false)
-            assertNull(presentation())
-            assertFalse(shown.isShowing)
+            assertSame(shown, presentation())
+            assertTrue(shown.isShowing)
+            assertFalse(shown.mapVisible)
+            `when`(controller.navigationActiveSnapshot()).thenReturn(true)
+            visibilityChanged.invoke(true)
+            assertSame(shown, presentation())
+            assertTrue(shown.mapVisible)
+            `when`(controller.navigationActiveSnapshot()).thenReturn(false)
+            visibilityChanged.invoke(false)
+            assertFalse(shown.mapVisible)
             AirPlayPersistence.saveClusterNavigationOnly(app, false)
             visibilityChanged.invoke(false)
-            assertTrue(presentation()!!.isShowing)
+            assertSame(shown, presentation())
+            assertTrue(shown.mapVisible)
             AirPlayPersistence.saveClusterMapEnabled(app, false)
             refresh()
             assertNull(presentation())

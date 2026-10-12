@@ -15,10 +15,10 @@ class ArcfoxClusterDisplayTest {
         val area = ArcfoxClusterDisplay.MAP_VIEW_INSETS
         assertEquals(500, area.left)
         assertEquals(500, area.right)
-        assertEquals(80, area.top)
-        assertEquals(30, area.bottom)
+        assertEquals(288, area.top)
+        assertEquals(0, area.bottom)
         assertEquals(920, ArcfoxClusterDisplay.WIDTH - area.left - area.right)
-        assertEquals(610, ArcfoxClusterDisplay.HEIGHT - area.top - area.bottom)
+        assertEquals(432, ArcfoxClusterDisplay.HEIGHT - area.top - area.bottom)
     }
 
     @Test fun selectsOnlyTheObservedPhysicalInstrument() {
@@ -64,7 +64,7 @@ class ArcfoxClusterDisplayTest {
             horizontalStep = 1, verticalStep = -1)
         val safe = config.safeArea!!
         assertEquals(960, (safe.left + config.widthPixels - safe.right) / 2)
-        assertEquals(385, (safe.top + config.heightPixels - safe.bottom) / 2)
+        assertEquals(504, (safe.top + config.heightPixels - safe.bottom) / 2)
         assertEquals(null, config.viewArea)
         assertEquals(true, config.safeAreaDrawOutside)
     }

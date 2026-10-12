@@ -21,8 +21,10 @@ internal object ArcfoxWheelZoom {
 
     fun update(owner: Any, controller: com.shilapi.xcertplay.orchestration.CarPlayController?, shown: Boolean) {
         if (!ArcfoxClusterDisplay.isVehicle()) return
-        if (!shown || controller == null) { release(owner); return }
-        if (target.attach(owner, controller::dashboardMapRoute, controller::zoomDashboardMap))
+        if (controller == null) { release(owner); return }
+        // Keep the passive HIDL subscription through navigation-only hide/show transitions.
+        // A hidden map has no route, so a wheel press cannot reach the iPhone until it is visible.
+        if (target.attach(owner, { if (shown) controller.dashboardMapRoute() else null }, controller::zoomDashboardMap))
             worker.execute(::connect)
     }
 

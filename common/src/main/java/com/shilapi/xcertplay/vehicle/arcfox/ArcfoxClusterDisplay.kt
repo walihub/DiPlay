@@ -16,13 +16,14 @@ internal object ArcfoxClusterDisplay {
     private const val DISPLAY_NAME = "HDMI 屏幕"
     const val WIDTH = 1920
     const val HEIGHT = 720
-    // Default iPhone layout region. Full-panel map background still covers the OEM map.
+    // Keep the full-panel map. The default safe area's centre is (960, 504),
+    // one fifth of the 720 px panel below its vertical centre.
     const val MAP_VIEW_WIDTH = 920
-    const val MAP_VIEW_HEIGHT = 610
+    const val MAP_VIEW_HEIGHT = 432
     const val MAP_VIEW_LEFT = 500
-    const val MAP_VIEW_TOP = 80
+    const val MAP_VIEW_TOP = 288
     const val DEFAULT_MARKER_Y_PERCENT = 60
-    val MAP_VIEW_INSETS = AirPlayInsets(top = 80, bottom = 30, left = 500, right = 500)
+    val MAP_VIEW_INSETS = AirPlayInsets(top = 288, bottom = 0, left = 500, right = 500)
     // Window 1002, CrossViewType=3 in the supplied Amap 7.5 MultipleScreen.json.
     const val SMALL_CARD_X_PERCENT = 18
     const val SMALL_CARD_Y_PERCENT = 55

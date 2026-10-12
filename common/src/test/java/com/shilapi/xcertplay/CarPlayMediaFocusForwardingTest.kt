@@ -139,6 +139,28 @@ class CarPlayMediaFocusForwardingTest {
         verify(sink, never()).onMediaAudioFocusChanged(AudioManager.AUDIOFOCUS_GAIN)
     }
 
+    @Test fun arcfoxResidualAudioCannotReclaimFocusButANewPhonePlayCan() {
+        val controller = mock(CarPlayController::class.java).also(controllers::add)
+        val sink = spy(AndroidMediaSink()).also(sinks::add)
+        start(controller, sink)
+        ReflectionHelpers.setField(CarPlayMediaKeys, "vehicleMusicExclusive", true)
+        CarPlayMediaKeys.pauseForVehicleMusic(controller)
+        clearInvocations(sink)
+        CarPlayMediaKeys.onMediaAudioChanged(true)
+        shadowOf(Looper.getMainLooper()).idle()
+        verify(sink, never()).onMediaAudioFocusChanged(AudioManager.AUDIOFOCUS_GAIN)
+        CarPlayMediaKeys::class.java.getDeclaredMethod("onIphonePlaying", CarPlayController::class.java,
+            Boolean::class.javaPrimitiveType).apply { isAccessible = true }.invoke(CarPlayMediaKeys, controller, true)
+        shadowOf(Looper.getMainLooper()).idle()
+        verify(sink).onMediaAudioFocusChanged(AudioManager.AUDIOFOCUS_GAIN)
+        clearInvocations(sink)
+        ReflectionHelpers.setField(CarPlayMediaKeys, "focusHeld", false)
+        CarPlayMediaKeys::class.java.getDeclaredMethod("onIphonePlaying", CarPlayController::class.java,
+            Boolean::class.javaPrimitiveType).apply { isAccessible = true }.invoke(CarPlayMediaKeys, controller, true)
+        shadowOf(Looper.getMainLooper()).idle()
+        verify(sink, never()).onMediaAudioFocusChanged(AudioManager.AUDIOFOCUS_GAIN)
+    }
+
     private fun start(controller: CarPlayController, sink: AndroidMediaSink,
         clearInitialGrant: Boolean = true): AudioManager.OnAudioFocusChangeListener {
         `when`(controller.nowPlayingSnapshot()).thenReturn(CarPlayNowPlaying())

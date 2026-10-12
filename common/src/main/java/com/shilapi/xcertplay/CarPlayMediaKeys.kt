@@ -66,6 +66,8 @@ internal object CarPlayMediaKeys {
     private var focusHeld = false
     private var appContext: Context? = null
     private var mediaAudioActive = false
+    private var vehicleMusicExclusive = false
+    private var pausedForVehicleMusic = false
     private var iphonePlaying = false
     private var nowPlaying = CarPlayNowPlaying()
     private var elapsedUpdatedAt = 0L
@@ -77,7 +79,9 @@ internal object CarPlayMediaKeys {
     fun attach(context: Context, next: CarPlayController) {
         if (controller !== next) {
             releaseLocked()
-            VehicleMediaAdapter.onSessionStarted(context)
+            VehicleMediaAdapter.onSessionStarted(context, next)
+            vehicleMusicExclusive = com.shilapi.xcertplay.vehicle.VehicleProfiles.isArcfox(context) &&
+                com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox()
             artworkOwner = artworkQueue.newSession()
         }
         appContext = context.applicationContext
@@ -118,8 +122,10 @@ internal object CarPlayMediaKeys {
                 if (controller !== expected) return@synchronized
                 val startedPlaying = playing && !iphonePlaying
                 iphonePlaying = playing
-                if (playing) regainFocusLocked()
+                if (playing && (!vehicleMusicExclusive || startedPlaying)) regainFocusLocked()
                 if (startedPlaying) {
+                    pausedForVehicleMusic = false
+                    VehicleMediaAdapter.onCarPlayMusicStarted()
                     recoverVehicleMediaRouteLocked()
                 }
             }
@@ -276,8 +282,10 @@ internal object CarPlayMediaKeys {
     private fun updateLocked(active: Boolean) {
         val context = appContext ?: return
         if (controller == null) return
+        val started = active && !mediaAudioActive
         mediaAudioActive = active
-        if (active && session == null) start(context) else if (active) regainFocusLocked()
+        if (active && session == null) start(context)
+        else if (active && (!vehicleMusicExclusive || (started && !pausedForVehicleMusic))) regainFocusLocked()
         publishPlaybackStateLocked()
     }
 
@@ -342,11 +350,37 @@ internal object CarPlayMediaKeys {
         // Resolve the matching sink and invoke it outside the media-key monitor. An abandoned
         // request must never mute a newer controller, and these owners must not nest locks.
         val background = CarPlayBackgroundSession.snapshot()
-        if (background?.controller === expectedController) background.sink.onMediaAudioFocusChanged(change)
+        if (background?.controller === expectedController) {
+            background.sink.onMediaAudioFocusChanged(change)
+            if (change == AudioManager.AUDIOFOCUS_LOSS && !background.sink.hasVehicleAssistantAudio())
+                pauseForVehicleMusic(expectedController)
+        }
+    }
+
+    /** A verified native music start/permanent focus loss pauses the phone; never resume on gain. */
+    internal fun pauseForVehicleMusic(expected: CarPlayController) {
+        val shouldPause = synchronized(this) {
+            if (!vehicleMusicExclusive || controller !== expected || pausedForVehicleMusic ||
+                !(iphonePlaying || nowPlaying.playing || mediaAudioActive)) false
+            else {
+                pausedForVehicleMusic = true
+                // Some native players publish a session start without requesting focus.
+                // The next genuine phone start must request a fresh grant and restore its sink.
+                focusHeld = false
+                true
+            }
+        }
+        if (!shouldPause) return
+        CarPlayBackgroundSession.snapshot()?.takeIf { it.controller === expected }
+            ?.sink?.onVehicleNativeMusicStarted()
+        val sent = expected.sendMediaButton(CarPlayMediaButton.PAUSE)
+        Log.i(TAG, "native music owns playback; phone pause sent=$sent")
     }
 
     private fun releaseLocked() {
         VehicleMediaAdapter.onSessionEnded(appContext)
+        vehicleMusicExclusive = false
+        pausedForVehicleMusic = false
         focusOwner = null
         controller?.let(com.shilapi.xcertplay.media.AmbientMusicController::releasePlaybackOwner)
         artworkOwner = null

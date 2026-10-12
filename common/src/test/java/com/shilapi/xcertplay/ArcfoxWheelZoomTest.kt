@@ -53,6 +53,22 @@ class ArcfoxWheelZoomTest {
         assertEquals(listOf(false, false, true), calls)
     }
 
+    @Test fun navigationOnlyHidesTheRouteWithoutDetachingTheWheelSubscription() {
+        val target = ArcfoxWheelZoomTarget()
+        val owner = Any()
+        val route = Any()
+        val calls = mutableListOf<Boolean>()
+        target.attach(owner, { route }) { calls.add(it); true }
+        val stalePress = target.prepare(message("up"))!!
+        target.attach(owner, { null }) { calls.add(it); true }
+        assertTrue(target.attached())
+        assertNull(target.prepare(message("up")))
+        assertFalse(stalePress())
+        target.attach(owner, { route }) { calls.add(it); true }
+        assertTrue(target.prepare(message("down"))!!.invoke())
+        assertEquals(listOf(false), calls)
+    }
+
     @Test fun delayedEventsCannotAffectAReplacedPausedOrDisconnectedStream() {
         for (replacement in listOf(Any(), null)) {
             val target = ArcfoxWheelZoomTarget()
