@@ -13,6 +13,7 @@ internal object ArcfoxWheelZoom {
     private val target = ArcfoxWheelZoomTarget()
     private var transport: ArcfoxWheelHidl? = null
     private var lastConnection: Boolean? = null
+    private var mapShown = false
     private val worker by lazy {
         Executors.newSingleThreadScheduledExecutor { task ->
             Thread(task, "DiPlay-ArcfoxWheel").apply { isDaemon = true }
@@ -22,13 +23,18 @@ internal object ArcfoxWheelZoom {
     fun update(owner: Any, controller: com.shilapi.xcertplay.orchestration.CarPlayController?, shown: Boolean) {
         if (!ArcfoxClusterDisplay.isVehicle()) return
         if (controller == null) { release(owner); return }
+        val newlyShown = shown && !mapShown
+        mapShown = shown
         // Keep the passive HIDL subscription through navigation-only hide/show transitions.
         // A hidden map has no route, so a wheel press cannot reach the iPhone until it is visible.
-        if (target.attach(owner, { if (shown) controller.dashboardMapRoute() else null }, controller::zoomDashboardMap))
+        if (target.attach(owner, { if (shown) controller.dashboardMapRoute() else null }, controller::zoomDashboardMap) || newlyShown)
             worker.execute(::connect)
     }
 
-    fun release(owner: Any) { target.detach(owner) }
+    fun release(owner: Any) {
+        target.detach(owner)
+        mapShown = false
+    }
 
     private fun connect() {
         if (!target.attached()) return

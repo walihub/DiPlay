@@ -3,6 +3,8 @@ package com.shilapi.xcertplay
 import android.content.Context
 import com.shilapi.xcertplay.setup.DiLinkGeneration
 import com.shilapi.xcertplay.setup.SetupGuide
+import com.shilapi.xcertplay.vehicle.VehicleProfile
+import com.shilapi.xcertplay.vehicle.VehicleProfiles
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -27,6 +29,20 @@ class AudioChannelPersistenceTest {
         assertEquals(0, AirPlayPersistence.loadMediaAudioChannel(context))
         assertEquals(0, AirPlayPersistence.loadNavigationAudioChannel(context))
         org.junit.Assert.assertTrue(AirPlayPersistence.loadAudioFocusAutoYield(context))
+    }
+
+    @Test fun arcfoxDefaultsToVehicleStreamsButExplicitAutomaticMediaStillWorks() {
+        VehicleProfiles.save(context, VehicleProfile.ARCFOX_T)
+        try {
+            assertEquals(3, AirPlayPersistence.loadMediaAudioChannel(context))
+            assertEquals(11, AirPlayPersistence.loadNavigationAudioChannel(context))
+            AirPlayPersistence.saveMediaAudioChannel(context, 0)
+            AirPlayPersistence.saveNavigationAudioChannel(context, 0)
+            assertEquals(0, AirPlayPersistence.loadMediaAudioChannel(context))
+            assertEquals(0, AirPlayPersistence.loadNavigationAudioChannel(context))
+        } finally {
+            VehicleProfiles.save(context, VehicleProfile.UNKNOWN)
+        }
     }
 
     @Test fun audioFocusAutoYieldCanBeSavedAndRestored() {

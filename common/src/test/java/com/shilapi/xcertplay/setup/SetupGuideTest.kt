@@ -80,7 +80,7 @@ class SetupGuideTest {
         assertEquals(14, SetupGuide.navigationAudioChannelDefault(DiLinkGeneration.DILINK_3))
         assertEquals(14, SetupGuide.navigationAudioChannelDefault(DiLinkGeneration.DILINK_4))
         assertEquals(15, SetupGuide.navigationAudioChannelDefault(DiLinkGeneration.DILINK_5))
-        assertEquals(0, SetupGuide.navigationAudioChannelDefault(DiLinkGeneration.ARCFOX_T))
+        assertEquals(11, SetupGuide.navigationAudioChannelDefault(DiLinkGeneration.ARCFOX_T))
         assertEquals(0, SetupGuide.navigationAudioChannelDefault(DiLinkGeneration.UNKNOWN))
     }
 

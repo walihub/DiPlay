@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay.orchestration
 
 import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxHardKeys
+import com.shilapi.xcertplay.airplay.CarPlayMediaButton
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -43,5 +44,12 @@ class ArcfoxHardKeysTest {
         assertTrue(ArcfoxHardKeys.isVoiceLongPress("adayo.keyEvent.onKeyLongPress.N6", 219))
         assertFalse(ArcfoxHardKeys.isVoiceLongPress("adayo.keyEvent.onKeyDown.N6", 231))
         assertFalse(ArcfoxHardKeys.isVoiceLongPress("adayo.keyEvent.onKeyLongPress.N6", 87))
+    }
+
+    @Test fun referenceN6MediaCodesOnlyFireOnKeyDown() {
+        org.junit.Assert.assertEquals(CarPlayMediaButton.NEXT, ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyDown.N6", 16))
+        org.junit.Assert.assertEquals(CarPlayMediaButton.PREVIOUS, ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyDown.N6", 15))
+        org.junit.Assert.assertNull(ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyUp.N6", 16))
+        org.junit.Assert.assertNull(ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyDown.N6", 87))
     }
 }

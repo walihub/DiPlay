@@ -46,7 +46,8 @@ object SetupGuide {
     fun navigationAudioChannelDefault(generation: DiLinkGeneration): Int = when (generation) {
         DiLinkGeneration.DILINK_3, DiLinkGeneration.DILINK_4 -> 14
         DiLinkGeneration.DILINK_5 -> 15
-        DiLinkGeneration.ARCFOX_T, DiLinkGeneration.UNKNOWN -> 0
+        DiLinkGeneration.ARCFOX_T -> 11
+        DiLinkGeneration.UNKNOWN -> 0
     }
 
     fun applyGenerationDefaults(context: Context, generation: DiLinkGeneration): Boolean =

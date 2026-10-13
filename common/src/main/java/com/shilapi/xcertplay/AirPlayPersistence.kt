@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay
 
 import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxClusterDisplay
+import com.shilapi.xcertplay.vehicle.VehicleProfiles
 
 import android.content.Context
 import android.os.Build
@@ -262,7 +263,7 @@ object AirPlayPersistence {
 
     fun loadMediaAudioChannel(context: Context): Int =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getInt(KEY_MEDIA_AUDIO_CHANNEL, 0)
+            .getInt(KEY_MEDIA_AUDIO_CHANNEL, if (VehicleProfiles.isArcfox(context)) 3 else 0)
             .takeIf { it in AUDIO_CHANNELS } ?: 0
 
     fun saveMediaAudioChannel(context: Context, channel: Int) {
@@ -274,7 +275,8 @@ object AirPlayPersistence {
     fun loadNavigationAudioChannel(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         // Inherit the legacy value only when the new key is absent; preserve fresh-install and explicit 0 defaults.
-        return prefs.getInt(KEY_NAVIGATION_AUDIO_CHANNEL, prefs.getInt(KEY_NAVIGATION_STREAM_TYPE, 0))
+        val default = if (VehicleProfiles.isArcfox(context)) 11 else 0
+        return prefs.getInt(KEY_NAVIGATION_AUDIO_CHANNEL, prefs.getInt(KEY_NAVIGATION_STREAM_TYPE, default))
             .takeIf { it in AUDIO_CHANNELS } ?: 0
     }
 

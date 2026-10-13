@@ -1,6 +1,8 @@
 package com.shilapi.xcertplay
 
 import com.shilapi.xcertplay.vehicle.VehicleBranding
+import com.shilapi.xcertplay.vehicle.VehicleIdentity
+import com.shilapi.xcertplay.vehicle.VehicleProfiles
 
 import com.shilapi.xcertplay.vehicle.vehicleClusterAdapter
 
@@ -521,6 +523,7 @@ class CarPlayHostActivity : ComponentActivity() {
             onNightChanged = { night ->
                 darkMode = night
                 if (hostAppearanceResumed) AppAppearanceRuntime.publishHost(this, night)
+                videoBackground?.setBackgroundColor(DiPlayPalette.of(night).background)
                 refreshAppAppearance()
                 paintWaitingScreen()
                 applyClusterTurnOverlay()
@@ -1000,7 +1003,11 @@ class CarPlayHostActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        arcfoxHardKeyReceiver = com.shilapi.xcertplay.vehicle.VehicleAdapters.registerVoiceKey(this) {
+        arcfoxHardKeyReceiver = com.shilapi.xcertplay.vehicle.VehicleAdapters.registerVoiceKey(this,
+            sendMedia = { press ->
+                hasWindowFocus() && activeAirPlaySession != null && !inCall(this) &&
+                    controller?.sendMediaButton(press) == true
+            }) {
             hasWindowFocus() && com.shilapi.xcertplay.hud.BydCarPlayCall.current() == null &&
                 controller?.requestSiri() == true
         }
@@ -1756,7 +1763,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun buildContentView(): View {
-        val root = FrameLayout(this).apply { setBackgroundColor(DiPlayPalette.of(appNight).background) }
+        val root = FrameLayout(this).apply { setBackgroundColor(DiPlayPalette.of(darkMode).background) }
         videoBackground = root
         val video = TextureView(this).apply {
             isOpaque = false
@@ -2552,7 +2559,6 @@ class CarPlayHostActivity : ComponentActivity() {
         val nextNight = resolveAppNightNow(darkMode)
         if (nextNight == appNight) return
         appNight = nextNight
-        videoBackground?.setBackgroundColor(DiPlayPalette.of(appNight).background)
 
         settingsMenu?.let { previous ->
             val parent = previous.parent as? ViewGroup ?: return@let
@@ -4900,6 +4906,7 @@ class CarPlayHostActivity : ComponentActivity() {
             sink = sink,
             microphoneEnabled = microphoneAvailable,
             audioCaptureDirectory = audioCaptureDirectory(),
+            arcfoxNavigationFeedbackCompatibility = VehicleProfiles.isArcfox(this) && VehicleIdentity.isArcfox(),
         )
 
     private fun createSessionListener(controllerGeneration: Int): AirPlaySessionListener =

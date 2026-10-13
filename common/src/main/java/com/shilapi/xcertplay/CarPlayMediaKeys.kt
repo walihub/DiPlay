@@ -324,6 +324,7 @@ internal object CarPlayMediaKeys {
         }
         recoverVehicleMediaRouteLocked()
         session = MediaSession(context, "DiPlay CarPlay").apply {
+            setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
             setCallback(callback, mainHandler)
             setMetadata(androidMetadata(nowPlaying, shownArtworkLocked()))
             isActive = true

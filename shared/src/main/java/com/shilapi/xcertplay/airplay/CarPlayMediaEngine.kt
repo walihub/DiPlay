@@ -54,10 +54,16 @@ internal fun currentScreenListener(type: Int, sink: MediaSink, isCurrent: () -> 
     }
 }
 
+/** Keep the previously working Arcfox guidance feedback until its 16 kHz Opus route is verified on-car. */
+internal fun feedbackClockRate(format: AudioFormat, arcfoxNavigationCompatibility: Boolean): Int =
+    if (arcfoxNavigationCompatibility && format.codec == AudioCodecKind.OPUS &&
+        format.audioType.lowercase() in setOf("default", "alert")) format.sampleRate else format.rtpClockRate
+
 class CarPlayMediaEngine(
     private val sink: MediaSink,
     private val microphoneEnabled: Boolean = false,
     private val audioCaptureDirectory: File? = null,
+    private val arcfoxNavigationFeedbackCompatibility: Boolean = false,
 ) : AirPlayMediaHandler {
     internal data class StreamKey(
         val session: AirPlaySession,
@@ -70,10 +76,11 @@ class CarPlayMediaEngine(
         val format: AudioFormat,
         val connectionId: Any?,
         val playoutLatencyMs: Int,
+        val feedbackClockRate: Int,
         @Volatile var firstSample: Int? = null,
         @Volatile var originNs: Long? = null,
     ) {
-        val position = FeedbackPositionMonitor(format.rtpClockRate)
+        val position = FeedbackPositionMonitor(feedbackClockRate)
     }
 
     private data class PendingIapTunnel(
@@ -183,7 +190,8 @@ class CarPlayMediaEngine(
         )
         val connectionId = stream["streamConnectionID"]
         val latencyMs = (stream["audioLatencyMs"] as? Number)?.toInt() ?: 0
-        val meta = AudioMeta(type, format, connectionId, latencyMs)
+        val meta = AudioMeta(type, format, connectionId, latencyMs,
+            feedbackClockRate(format, arcfoxNavigationFeedbackCompatibility))
         val microphone = microphoneConfig(session, type, stream, format)
         if (microphone != null) pendingMicrophone[streamKey] = microphone
         if (type == STREAM_TYPE_MAIN_AUDIO && audioType != "media") {
@@ -451,10 +459,9 @@ class CarPlayMediaEngine(
         val buffered = bufferedStreams[session]
         if (active.isEmpty() && buffered == null) return null
         val streams = active.map { meta ->
-            // sampleTime counts on the stream's RTP clock. Counted at the 48 kHz Opus decode rate,
-            // a 16 kHz call stream ran 3x ahead of the audio that had arrived, 14.5 s ahead after
-            // 20 s, in a call whose far end the driver could not understand (#473).
-            val clockRate = meta.format.rtpClockRate
+            // Calls use the measured RTP clock (#473). Arcfox guidance temporarily retains its
+            // earlier feedback rate because navigation became silent after the 0.2.19 change.
+            val clockRate = meta.feedbackClockRate
             val entry = linkedMapOf<String, Any?>(
                 "type" to meta.type,
                 "sampleRate" to clockRate,

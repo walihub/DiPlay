@@ -19,4 +19,12 @@ class AudioStreamCodecTest {
         assertEquals(44_100, AudioStreamCodec.fromFormatBits(0x400000L, 102).rtpClockRate)
         assertEquals(16_000, AudioStreamCodec.fromFormatBits(0x10L, 100).rtpClockRate)
     }
+
+    @Test fun arcfoxGuidanceRetainsPreviousFeedbackClockWithoutChangingCalls() {
+        val guidance = AudioStreamCodec.fromFormatBits(0x10000000L, 101, "default")
+        val call = AudioStreamCodec.fromFormatBits(0x10000000L, 100, "telephony")
+        assertEquals(48_000, feedbackClockRate(guidance, true))
+        assertEquals(16_000, feedbackClockRate(guidance, false))
+        assertEquals(16_000, feedbackClockRate(call, true))
+    }
 }
