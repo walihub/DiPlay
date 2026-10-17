@@ -12,7 +12,7 @@ public final class HudArbiter {
  private static final Binder endpoint=new Binder(){@Override protected boolean onTransact(int code,Parcel data,Parcel reply,int flags)throws RemoteException{
   if(code==INTERFACE_TRANSACTION){reply.writeString(DESCRIPTOR);return true;}
   data.enforceInterface(DESCRIPTOR);final String name=data.readString();final int uid=Binder.getCallingUid();
-  if(context==null||!("com.shihab.diplay".equals(name)||"com.autonavi.amaparcfox".equals(name)))throw new SecurityException("source not allowed");
+  if(context==null||!("com.shihab.diplay".equals(name)||"com.autonavi.amaparcfox".equals(name)||"com.baidu.naviauto".equals(name)))throw new SecurityException("source not allowed");
   String[] packages=context.getPackageManager().getPackagesForUid(uid);
   if(packages==null||!Arrays.asList(packages).contains(name)||context.getPackageManager().checkSignatures(uid,android.os.Process.myUid())!=0)throw new SecurityException("source identity mismatch");
   if(code==1){final IBinder token=data.readStrongBinder();if(token==null)throw new IllegalArgumentException("missing lifetime");

@@ -164,6 +164,8 @@ APK 采用逐字符编码，DiPlay 使用整串 GBK 编码；常用中英文路�
 
 ## 5. 仪表音乐协议
 
+2026-10-16 更新：当前媒体完善版优先使用原车 IFgeComService 消息 114 直接输出 mediatype=19，进度／封面／恢复和源所有权实现见 [媒体方案与验收](ARCFOX_MEDIA_COMPLETION_PLAN_20261016.md)、[直连协议证据](ARCFOX_MEDIA_DIRECT_TRANSPORT_AUDIT_20261016.md)。下述 5.1 描述旧 Link 兼容通路，保留用于首次直连不可用时的回退。一个连接会话固定一条成功通路；不会来回切换。直连不是 ADSBus 原生 CarPlay 音乐入口，不伪造连接状态。
+
 ### 5.1 当前使用的 ARCFOX Link 路径
 
 这是用户提供的参考修改版接口，不能假定所有出厂版 ARCFOX Link 都具备相同接收器。

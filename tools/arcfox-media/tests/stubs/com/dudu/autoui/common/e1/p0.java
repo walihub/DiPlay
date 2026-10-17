@@ -1,0 +1,1 @@
+package com.dudu.autoui.common.e1;public class p0 {public static int selected=7;public static void b(String key,int value){selected=value;}}

@@ -184,7 +184,9 @@ object PhoneAudioRoute {
     internal fun ownCarPlayCallActive(): Boolean = carPlayCallActive
 
     private fun enabledFor(context: Context, reason: PhoneAudioReason): Boolean = when (reason) {
-        PhoneAudioReason.CARPLAY_CALL -> BydOutputSettings.phoneAudioRoute(context)
+        PhoneAudioReason.CARPLAY_CALL -> BydOutputSettings.phoneAudioRoute(context) &&
+            !(com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox() &&
+                com.shilapi.xcertplay.vehicle.arcfox.ArcfoxNativePhone.enabled(context))
         PhoneAudioReason.VOIP_APP -> BydOutputSettings.phoneAudioRouteApps(context)
     }
 

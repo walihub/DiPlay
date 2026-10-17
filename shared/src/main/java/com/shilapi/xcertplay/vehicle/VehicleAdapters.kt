@@ -2,10 +2,8 @@ package com.shilapi.xcertplay.vehicle
 
 import android.content.Context
 import android.os.Build
-import com.shilapi.xcertplay.hud.CarPlayCallCard
 import com.shilapi.xcertplay.iap2.wire.Iap2Frame
 import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxHardKeys
-import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxPhoneSync
 import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxHudSync
 import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxSessionAdapter
 
@@ -29,11 +27,19 @@ object VehicleAdapters {
     fun session(context: Context, owner: Any): VehicleSessionAdapter =
         if (VehicleProfiles.isArcfox(context)) ArcfoxSessionAdapter(context, owner) else DefaultSession
 
-    fun registerVoiceKey(context: Context, sendMedia: (Int) -> Boolean = { false }, requestSiri: () -> Boolean) =
+    fun registerVoiceKey(context: Context, sendMedia: (Int) -> Boolean = { false },
+        requestSiri: () -> Boolean) =
         if (VehicleProfiles.isArcfox(context)) ArcfoxHardKeys.register(context, sendMedia, requestSiri) else null
 
-    fun attachCalls(context: Context) = ArcfoxPhoneSync.attach(context)
-    fun onCall(card: CarPlayCallCard?) = ArcfoxPhoneSync.onCard(card)
-    fun endCalls() = ArcfoxPhoneSync.end()
+    /** Profile-specific input selection; Arcfox never probes BYD's autoservice. */
+    fun motionEnabled(context: Context): Boolean =
+        if (VehicleProfiles.isArcfox(context))
+            com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphone(context, defaultValue = true)
+        else com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphoneActive(context)
+
+    fun wheelSpeed(context: Context): com.shilapi.xcertplay.transport.VehicleSpeedSource =
+        if (VehicleProfiles.isArcfox(context)) com.shilapi.xcertplay.vehicle.arcfox.ArcfoxVehicleSpeed(context)
+        else com.shilapi.xcertplay.hud.BydNavigationOutputs.wheelSpeed(context)
+
     fun diagnosticReport(): String = ArcfoxHudSync.diagnosticReport()
 }

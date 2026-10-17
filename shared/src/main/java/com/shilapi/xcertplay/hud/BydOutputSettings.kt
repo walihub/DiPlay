@@ -61,7 +61,8 @@ object BydOutputSettings {
     }
 
     /** Send wheel speed and gear with the car's GPS (needs ADB over network); applies on the next connection. */
-    fun wheelSpeedToIphone(context: Context): Boolean = prefs(context).getBoolean(KEY_WHEEL_SPEED_TO_IPHONE, false)
+    fun wheelSpeedToIphone(context: Context, defaultValue: Boolean = false): Boolean =
+        prefs(context).getBoolean(KEY_WHEEL_SPEED_TO_IPHONE, defaultValue)
 
     fun setWheelSpeedToIphone(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_WHEEL_SPEED_TO_IPHONE, enabled).commit()

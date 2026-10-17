@@ -890,4 +890,13 @@
     <string name="connection_help_existing_wifi">请确认车机和 iPhone 连接的是同一个 Wi-Fi 网络，且网络名称和密码与 DiPlay 设置一致，然后重试。</string>
     <string name="settings_report_on_phone">在手机上取得报告</string>
     <string name="settings_report_on_phone_hint">用手机相机扫码，在浏览器中打开此页面，然后选择“下载报告”。下载完成前请保持此画面开启。</string>
+    <string name="settings_car_hotspot_control">车辆热点</string>
+    <string name="settings_auto_car_hotspot_system_description">打开 DiPlay 时及无线连接前开启已保存的车辆热点。DiPlay 需要 Android 的“修改系统设置”权限；无需 ADB。若要在完全重启后也有热点，请同时开启“车辆启动后打开 DiPlay”。热点不会自动关闭。</string>
+    <string name="settings_write_settings_granted">“修改系统设置”权限：已允许</string>
+    <string name="settings_write_settings_missing">尚未允许“修改系统设置”权限。请允许，以便 DiPlay 开启热点。</string>
+    <string name="settings_write_settings_allow">允许权限</string>
+    <string name="settings_arcfox_phone_mode">电话音频（实验性）</string>
+    <string name="settings_arcfox_phone_system">系统默认</string>
+    <string name="settings_arcfox_phone_native">原车蓝牙优先</string>
+    <string name="settings_arcfox_phone_description">下次连接生效。无线 CarPlay 确认同一部 iPhone 已使用蓝牙通话音频后，让出通话声音与麦克风；确认原车来电时避免重复铃声。保留 CarPlay 界面，不断开蓝牙。状态无法确认时使用 CarPlay。</string>
 </resources>

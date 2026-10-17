@@ -182,6 +182,7 @@ internal class AudioFocusCoordinator(
         val gain = when (primary.channel) {
             AudioChannel.MEDIA -> AudioManager.AUDIOFOCUS_GAIN
             AudioChannel.PHONE -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            AudioChannel.RING -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
             AudioChannel.ASSISTANT -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
             AudioChannel.NAVIGATION -> return
         }
@@ -213,6 +214,7 @@ internal class AudioFocusCoordinator(
     private fun AudioChannel.focusPriority(): Int = when (this) {
         AudioChannel.MEDIA -> 3
         AudioChannel.PHONE -> 2
+        AudioChannel.RING -> 2
         AudioChannel.ASSISTANT -> 1
         AudioChannel.NAVIGATION -> 0
     }
@@ -330,6 +332,38 @@ class AndroidMediaSink(
     private val recoveryExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "carplay-video-recovery").apply { isDaemon = true }
     }
+
+    private var phoneYield = com.shilapi.xcertplay.vehicle.arcfox.PhoneYield()
+    private var phoneClosed = false
+    private val yieldedAudioStreams = ConcurrentHashMap.newKeySet<AudioStreamId>()
+    private val nativePhone = appContext?.takeIf {
+        com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox(vehicleFingerprint) &&
+            com.shilapi.xcertplay.vehicle.arcfox.ArcfoxNativePhone.enabled(it)
+    }?.let { com.shilapi.xcertplay.vehicle.arcfox.NativePhoneMonitor(it, ::yieldNativePhone) }
+
+    @Synchronized private fun yieldNativePhone(next: com.shilapi.xcertplay.vehicle.arcfox.PhoneYield) {
+        if (phoneClosed) return
+        phoneYield = next
+        for (id in audioRenderers.keys.toList()) {
+            if (nativePhoneOwns(id.audioType)) {
+                audioRenderers.remove(id)?.close()
+                yieldedAudioStreams.add(id)
+            }
+        }
+        if (next.call) {
+            // Native HFP has already established its audio mode. Do not restore a stale mode over it.
+            synchronized(audioModeLock) { communicationModeStream = null }
+            for (id in microphoneUplinks.keys.toList()) {
+                if (id.audioType.equals("telephony", true)) microphoneUplinks.remove(id)?.close()
+            }
+        }
+        runCatching { onAudioDiagnostic("Arcfox native phone: call=${next.call} ring=${next.ring}") }
+    }
+
+    private fun nativePhoneOwns(type: String): Boolean =
+        (type.equals("telephony", true) && phoneYield.call) ||
+            (type.equals("alert", true) && phoneYield.ring &&
+                com.shilapi.xcertplay.hud.BydCarPlayCall.current() != null)
 
     override fun setVideoRecoveryHandler(type: Int, handler: () -> Unit) {
         videoRecoveryHandlers[type] = handler
@@ -555,16 +589,23 @@ class AndroidMediaSink(
         }
     }
 
-    override fun onAudioStarted(id: AudioStreamId, format: AudioFormat, firstSample: Int) {
+    @Synchronized override fun onAudioStarted(id: AudioStreamId, format: AudioFormat, firstSample: Int) {
+        if (phoneClosed) return
+        if (nativePhoneOwns(format.audioType)) { yieldedAudioStreams.add(id); return }
+        yieldedAudioStreams.remove(id)
         audioRenderer(id, format).start()
         if (format.audioType == "media") updateMediaAudio(id, true)
     }
 
-    override fun onAudioRtp(id: AudioStreamId, format: AudioFormat, rtp: ByteArray, sample: Int) {
+    @Synchronized override fun onAudioRtp(id: AudioStreamId, format: AudioFormat, rtp: ByteArray, sample: Int) {
+        if (phoneClosed) return
+        if (nativePhoneOwns(format.audioType)) { yieldedAudioStreams.add(id); return }
+        if (yieldedAudioStreams.remove(id)) audioRenderer(id, format).start()
         audioRenderer(id, format).submit(rtp, sample)
     }
 
     override fun onAudioStopped(id: AudioStreamId) {
+        yieldedAudioStreams.remove(id)
         synchronized(this) {
             audioRenderers.remove(id)?.close()
             callEchoReferences.remove(id)
@@ -581,7 +622,9 @@ class AndroidMediaSink(
         if (before != after) onMediaAudioChanged(after)
     }
 
-    override fun onMicrophoneStarted(id: AudioStreamId, config: MicrophoneConfig) {
+    @Synchronized override fun onMicrophoneStarted(id: AudioStreamId, config: MicrophoneConfig) {
+        if (phoneClosed) return
+        if (nativePhoneOwns(config.audioType)) return
         if (config.audioType.equals("speechRecognition", ignoreCase = true)) {
             assistantMicrophones.add(id)
             audioFocusCoordinator.assistantStateChanged()
@@ -661,6 +704,8 @@ class AndroidMediaSink(
     }
 
     fun close() {
+        synchronized(this) { phoneClosed = true }
+        nativePhone?.close()
         AmbientMusicController.closeSink(ambientSinkToken)
         synchronized(videoOwnershipLock) {
             videoClosed = true
@@ -2067,6 +2112,7 @@ private class AudioRenderer(
     private fun channelOverride(channel: AudioChannel): Int = when (channel) {
         AudioChannel.MEDIA -> mediaChannel
         AudioChannel.NAVIGATION -> navigationChannel
+        AudioChannel.RING -> AudioManager.STREAM_RING
         AudioChannel.ASSISTANT -> vehicleAssistantStream
         else -> 0
     }
@@ -2102,7 +2148,10 @@ private class AudioRenderer(
             payloadType = format.payloadType,
             mode = mode,
         )
-        return if (speakerphoneCall) AudioChannelMapper.playCallOnSpeaker(selection) else selection
+        val routed = AudioChannelMapper.arcfoxRing(format.audioType, selection,
+            com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox(vehicleFingerprint),
+            com.shilapi.xcertplay.hud.BydCarPlayCall.current()?.phase == com.shilapi.xcertplay.hud.CarPlayCallCard.Phase.RINGING)
+        return if (speakerphoneCall) AudioChannelMapper.playCallOnSpeaker(routed) else routed
     }
 
     private fun audioAttributesFor(selection: AudioChannelSelection): AudioAttributes =
@@ -2160,6 +2209,7 @@ private class AudioRenderer(
     private fun usageFor(channel: AudioChannel): Int = when (channel) {
         AudioChannel.MEDIA -> AudioAttributes.USAGE_MEDIA
         AudioChannel.PHONE -> AudioAttributes.USAGE_VOICE_COMMUNICATION
+        AudioChannel.RING -> AudioAttributes.USAGE_NOTIFICATION_RINGTONE
         // Android 7.x has no assistant usage and would record the track as an unknown usage.
         AudioChannel.ASSISTANT -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             AudioAttributes.USAGE_ASSISTANT

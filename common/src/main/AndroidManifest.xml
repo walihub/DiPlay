@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
 
+    <permission android:name="com.shihab.diplay.permission.ARCFOX_MEDIA_COORDINATION"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.shihab.diplay.permission.ARCFOX_MEDIA_COORDINATION" />
+
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Optional, user-authorized startup of the car's own hotspot. -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
@@ -21,8 +25,11 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <!-- Platform-signed Arcfox adaptation observes and pauses competing music sessions. -->
     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" tools:ignore="ProtectedPermissions" />
+    <!-- Platform-signed Arcfox builds may restore the two runtime grants after an OEM update. -->
+    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" tools:ignore="ProtectedPermissions" />
     <!-- The centre card also follows whichever launcher is the default home. -->
     <queries>
+        <package android:name="com.nforetek.bt.customer.service" />
         <package android:name="com.adayo.service.navi" />
         <package android:name="com.byd.carsettings" />
         <intent>
@@ -163,6 +170,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

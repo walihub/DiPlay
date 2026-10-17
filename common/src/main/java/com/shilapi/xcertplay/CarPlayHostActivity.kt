@@ -194,7 +194,7 @@ class CarPlayHostActivity : ComponentActivity() {
             locationInformationEnabled = locationReportingEnabled,
             vehicleStatusEnabled = com.shilapi.xcertplay.hud.BydOutputSettings.batteryToIphoneActive(this),
             chargingConnectors = com.shilapi.xcertplay.hud.BydOutputSettings.chargingConnectors(this),
-            vehicleSpeedEnabled = locationReportingEnabled && com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphoneActive(this),
+            vehicleSpeedEnabled = locationReportingEnabled && com.shilapi.xcertplay.vehicle.VehicleAdapters.motionEnabled(this),
         ),
         label = "DiPlay",
         hostName = "diplay-" + DiPlayBootstrap.deviceId(airPlayIdentity).replace(":", "").lowercase(),
@@ -773,6 +773,15 @@ class CarPlayHostActivity : ComponentActivity() {
                 "transport=${if (wirelessEnabled) "wireless" else "wired"}",
         )
         val reusedBackgroundSession = adoptBackgroundSession()
+        com.shilapi.xcertplay.vehicle.arcfox.ArcfoxRuntimePermissions.repair(this) { result ->
+            if (isFinishing || isDestroyed) return@repair
+            appendLog("Arcfox runtime permissions: $result")
+            locationPermissionAvailable = hasFineLocationPermission()
+            continueStartupAfterRuntimePermissions(reusedBackgroundSession)
+        }
+    }
+
+    private fun continueStartupAfterRuntimePermissions(reusedBackgroundSession: Boolean) {
         microphoneAvailable =
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         microphonePermissionResolved = microphoneAvailable
@@ -1006,11 +1015,11 @@ class CarPlayHostActivity : ComponentActivity() {
         arcfoxHardKeyReceiver = com.shilapi.xcertplay.vehicle.VehicleAdapters.registerVoiceKey(this,
             sendMedia = { press ->
                 hasWindowFocus() && activeAirPlaySession != null && !inCall(this) &&
-                    controller?.sendMediaButton(press) == true
-            }) {
-            hasWindowFocus() && com.shilapi.xcertplay.hud.BydCarPlayCall.current() == null &&
-                controller?.requestSiri() == true
-        }
+                    CarPlayMediaKeys.onArcfoxWheelMediaKey(press)
+            }, requestSiri = {
+                hasWindowFocus() && com.shilapi.xcertplay.hud.BydCarPlayCall.current() == null &&
+                    controller?.requestSiri() == true
+            })
         isActivityStarted = true
         logThemeState(ThemeModeDiagnostics.Source.START, resources.configuration)
         mainHandler.removeCallbacks(pollConfiguration)
@@ -5157,7 +5166,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 !config.locationReportingEnabled -> null
                 config.identification.vehicleSpeedEnabled -> VehicleSpeedLocationProvider(
                     AndroidCarPlayLocationProvider(this),
-                    com.shilapi.xcertplay.hud.BydNavigationOutputs.wheelSpeed(applicationContext),
+                    com.shilapi.xcertplay.vehicle.VehicleAdapters.wheelSpeed(applicationContext),
                 )
                 else -> AndroidCarPlayLocationProvider(this)
             }

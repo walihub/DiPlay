@@ -1,6 +1,5 @@
 package com.shilapi.xcertplay.hud
 
-import com.shilapi.xcertplay.vehicle.VehicleAdapters
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -134,7 +133,6 @@ object BydCarPlayCall {
 
     fun attach(appContext: Context) {
         context = appContext.applicationContext
-        VehicleAdapters.attachCalls(appContext)
         PhoneAudioRoute.attach(appContext)
     }
 
@@ -156,7 +154,6 @@ object BydCarPlayCall {
             if (!state.accept(frame)) return
             state.current()
         }
-        VehicleAdapters.onCall(card)
         Log.i(TAG, "CarPlay call ${card?.phase ?: "ended"}")
         PhoneAudioRoute.carPlayCall(card != null)
         val app = context ?: return
@@ -176,7 +173,6 @@ object BydCarPlayCall {
 
     /** The session ended: forget the calls and end the one DiPlay showed. */
     fun end() {
-        VehicleAdapters.endCalls()
         sessionActive = false
         PhoneAudioRoute.carPlayCall(false)
         synchronized(state) { state.clear() }

@@ -9,7 +9,10 @@ import com.shilapi.xcertplay.telecom.PhoneAudioRoute
 /** Starts the CarPlay host after boot when the user has enabled the startup option. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        com.shilapi.xcertplay.vehicle.arcfox.ArcfoxRuntimePermissions.grantAtStartup(context)
+        // Updating the APK repairs grants without opening DiPlay or starting a CarPlay session.
+        if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) return
         // Starts the watcher for other apps' calls when that setting is on, even without opening DiPlay.
         PhoneAudioRoute.attach(context)
         val launchEnabled = AirPlayPersistence.loadAutoStartOnBoot(context)

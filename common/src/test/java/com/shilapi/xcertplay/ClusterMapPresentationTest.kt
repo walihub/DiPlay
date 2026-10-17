@@ -18,6 +18,37 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29], manifest = Config.NONE)
 class ClusterMapPresentationTest {
+    @Test fun arcfoxTexturePublishesPhysicalSurfaceBeforeNotifyingTheHost() {
+        val fingerprint = android.os.Build.FINGERPRINT
+        org.robolectric.shadows.ShadowBuild.setFingerprint("AAOP_COCKPIT/test")
+        val id = display("HDMI 屏幕", "w1920dp-h720dp-mdpi")
+        lateinit var presentation: ClusterMapPresentation
+        val observed = mutableListOf<Boolean>()
+        presentation = ClusterMapPresentation(context, manager.getDisplay(id)) { surface ->
+            // The host runs this callback synchronously on the UI thread, and grants wheel zoom
+            // only when its surface is also the presentation's published physical surface.
+            if (surface != null) observed += (presentation.outputSurface === surface)
+        }
+        try {
+            presentation.create()
+            val video: android.view.TextureView = org.robolectric.util.ReflectionHelpers.getField(presentation, "videoView")
+            val listener = video.surfaceTextureListener!!
+            repeat(2) {
+                val texture = android.graphics.SurfaceTexture(0)
+                try {
+                    listener.onSurfaceTextureAvailable(texture, 1920, 720)
+                    assertTrue("First frame/recreated surface must immediately qualify for wheel zoom", observed.last())
+                    listener.onSurfaceTextureDestroyed(texture)
+                } finally { texture.release() }
+            }
+            assertEquals(2, observed.size)
+        } finally {
+            presentation.dismiss()
+            ShadowDisplayManager.removeDisplay(id)
+            org.robolectric.shadows.ShadowBuild.setFingerprint(fingerprint)
+        }
+    }
+
     @Test fun repeatedActiveNotificationsDoNotRestartTheFade() = withMeasuredPresentation { presentation ->
         presentation.setStreamActive(true)
         val video: android.view.View = org.robolectric.util.ReflectionHelpers.getField(presentation, "videoView")

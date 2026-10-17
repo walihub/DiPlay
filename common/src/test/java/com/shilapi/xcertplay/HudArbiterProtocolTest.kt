@@ -98,4 +98,18 @@ class HudArbiterProtocolTest {
             }
         } finally { ReflectionHelpers.setStaticField(Build::class.java, "FINGERPRINT", fingerprint) }
     }
+
+    @Test fun unrelatedVehicleValuesAndPacketsPassThroughUntouched() {
+        val fingerprint = Build.FINGERPRINT
+        ReflectionHelpers.setStaticField(Build::class.java, "FINGERPRINT", "AAOP_COCKPIT/test")
+        try {
+            // Phone lamp and arbitrary non-HUD properties must reach the original implementation.
+            for (id in listOf(557845456, 0, 557853244, 557853248)) {
+                assertFalse(HudArbiter.nativeInt(id, 1))
+            }
+            assertFalse(HudArbiter.nativeRoad(byteArrayOf(3, 24, 8, 0)))
+            assertFalse(HudArbiter.nativeRoad(byteArrayOf(3, 24, 7)))
+            assertFalse(HudArbiter.nativeRoad(byteArrayOf(0, 24, 7, 0)))
+        } finally { ReflectionHelpers.setStaticField(Build::class.java, "FINGERPRINT", fingerprint) }
+    }
 }

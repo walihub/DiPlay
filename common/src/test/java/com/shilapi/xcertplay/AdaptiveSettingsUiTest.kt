@@ -480,7 +480,7 @@ class AdaptiveSettingsUiTest {
 
     @Test
     @Config(shadows = [HotspotSearchProbe::class])
-    fun hotspotSearchKeepsTheBydAndCarHotspotAudienceGates() {
+    fun hotspotSearchKeepsTheCarHotspotAudienceGateAndNeedsNoAdbOffBydUnits() {
         installBydSettingsPackage()
         AirPlayPersistence.saveWirelessHotspotMode(context, WirelessHotspotMode.EXISTING_WIFI)
         HotspotSearchProbe.workers.clear()
@@ -493,8 +493,21 @@ class AdaptiveSettingsUiTest {
         assertFalse(index().any { it.title == title })
         AirPlayPersistence.saveWirelessHotspotMode(context, WirelessHotspotMode.MANUAL)
         shadowOf(context.packageManager).removePackage("com.byd.carsettings")
-        assertFalse(index().any { it.title == title })
+        // Other head units up to Android 10 get the switch through "Modify system settings" access instead of ADB.
+        assertEquals(SettingsCategory.CONNECTION, index().single { it.title == title }.category)
         assertTrue(HotspotSearchProbe.workers.isEmpty())
+    }
+
+    @Test
+    @Config(sdk = [25, 33], shadows = [HotspotSearchProbe::class])
+    fun hotspotSwitchStaysHiddenOffBydUnitsWhereAndroidLetsNoAppStartTethering() {
+        AirPlayPersistence.saveWirelessHotspotMode(context, WirelessHotspotMode.MANUAL)
+        HotspotSearchProbe.workers.clear()
+        HotspotSearchProbe.entered = CountDownLatch(1)
+        val screen = openSettings()
+        val index = ReflectionHelpers.callInstanceMethod<List<DiPlayActivity.SettingsSearchResult>>(
+            screen, "buildSettingsSearchIndex")
+        assertFalse(index.any { it.title == screen.getString(R.string.auto_car_hotspot_title) })
     }
 
     @Test fun cardControlsShareOneHeightAndGap() {

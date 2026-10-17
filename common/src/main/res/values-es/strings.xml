@@ -830,4 +830,13 @@
     <string name="connection_help_existing_wifi">Comprueba que la unidad y el iPhone estén en la misma red Wi-Fi y que su nombre y contraseña coincidan con DiPlay, y reintenta.</string>
     <string name="settings_report_on_phone">Obtener el informe en un teléfono</string>
     <string name="settings_report_on_phone_hint">Escanea el código con la cámara del teléfono para abrir esta página en su navegador y elige Descargar informe. Mantén esta pantalla abierta hasta que termine la descarga.</string>
+    <string name="settings_car_hotspot_control">Punto de acceso del coche</string>
+    <string name="settings_auto_car_hotspot_system_description">Activa el punto de acceso guardado del coche al abrir DiPlay y antes de una conexión inalámbrica. DiPlay necesita el acceso de Android «Modificar ajustes del sistema»; no se requiere ADB. Para tener el punto de acceso tras un reinicio completo, activa también abrir DiPlay al arrancar el coche. El punto de acceso no se desactiva automáticamente.</string>
+    <string name="settings_write_settings_granted">Acceso «Modificar ajustes del sistema»: permitido</string>
+    <string name="settings_write_settings_missing">El acceso «Modificar ajustes del sistema» aún no está permitido. Permítelo para que DiPlay pueda activar el punto de acceso.</string>
+    <string name="settings_write_settings_allow">Permitir acceso</string>
+    <string name="settings_arcfox_phone_mode">Audio de llamadas (experimental)</string>
+    <string name="settings_arcfox_phone_system">Predeterminado del sistema</string>
+    <string name="settings_arcfox_phone_native">Priorizar Bluetooth del coche</string>
+    <string name="settings_arcfox_phone_description">Se aplica en la próxima conexión. En CarPlay inalámbrico, cede audio y micrófono al confirmar una llamada Bluetooth del mismo iPhone; evita tonos duplicados al confirmar la llamada entrante nativa. Mantiene la interfaz y no desconecta Bluetooth. Si el estado es desconocido, usa CarPlay.</string>
 </resources>

@@ -35,14 +35,22 @@ def native():
  base=tree/'smali/com/adayo/service/navi/can/BaseCarManager.smali'
  inject(base,'.method public sendVehicleValue(Lcom/adayo/service/navi/can/bean/VehicleBean;)V','\n    iget v0, p1, Lcom/adayo/service/navi/can/bean/VehicleBean;->vehicleID:I\n    iget v1, p1, Lcom/adayo/service/navi/can/bean/VehicleBean;->valI:I\n    invoke-static {v0, v1}, '+ns+'->nativeInt(II)Z\n    move-result v0\n    if-eqz v0, :arbiter_original\n    return-void\n    :arbiter_original\n')
  inject(base,'.method public sendVehicleByteValue([B)V','\n    invoke-static {p1}, '+ns+'->nativeRoad([B)Z\n    move-result v0\n    if-eqz v0, :arbiter_original\n    return-void\n    :arbiter_original\n')
- manifest=tree/'AndroidManifest.xml';s=manifest.read_text().replace('    <application ', '    <uses-permission android:name="android.car.permission.CAR_VENDOR_EXTENSION"/>\n    <uses-permission android:name="android.permission.REAL_GET_TASKS"/>\n    <queries><package android:name="com.shihab.diplay"/><package android:name="com.autonavi.amaparcfox"/></queries>\n    <application ',1).replace('    </application>', '        <service android:name="local.arcfox.hud.HudArbiterService" android:exported="true" android:permission="android.car.permission.CAR_VENDOR_EXTENSION"/>\n    </application>');manifest.write_text(s)
- yml=tree/'apktool.yml';yml.write_text(yml.read_text().replace('versionCode: 2','versionCode: 3').replace('versionName: V01.01.05','versionName: V01.01.05-HudArbiter1'))
+ manifest=tree/'AndroidManifest.xml';s=manifest.read_text().replace('    <application ', '    <uses-permission android:name="android.car.permission.CAR_VENDOR_EXTENSION"/>\n    <uses-permission android:name="android.permission.REAL_GET_TASKS"/>\n    <queries><package android:name="com.shihab.diplay"/><package android:name="com.autonavi.amaparcfox"/><package android:name="com.baidu.naviauto"/></queries>\n    <application ',1).replace('    </application>', '        <service android:name="local.arcfox.hud.HudArbiterService" android:exported="true" android:permission="android.car.permission.CAR_VENDOR_EXTENSION"/>\n    </application>');manifest.write_text(s)
+ yml=tree/'apktool.yml';yml.write_text(yml.read_text().replace('versionCode: 2','versionCode: 5').replace('versionName: V01.01.05','versionName: V01.01.05-HudArbiter3-HudOnly'))
+ # Fail the build if a future HUD patch changes OEM navigation lifecycle, keys or maps.
+ allowed={Path('com/adayo/service/navi/ServiceApplication.smali'),Path('com/adayo/service/navi/can/VehicleSendQueue9.smali'),Path('com/adayo/service/navi/can/BaseCarManager.smali')}
+ originals={p.relative_to(decoded/'smali') for p in (decoded/'smali').rglob('*.smali')}
+ assert originals=={p.relative_to(tree/'smali') for p in (tree/'smali').rglob('*.smali')}
+ changed={p for p in originals if (decoded/'smali'/p).read_bytes()!=(tree/'smali'/p).read_bytes()}
+ assert changed==allowed, 'HUD patch changed unrelated OEM classes: '+str(changed^allowed)
+ assert 'RecoveryReceiver' not in manifest.read_text()
+ assert 'NativeNaviLifecycle' not in app.read_text()
  compile_sources(list((ROOT/'tools/arcfox-hud/service-src').rglob('*.java')),WORK/'service-classes');dex(WORK/'service-classes',WORK/'service.dex')
  (tree/'unknown').mkdir(exist_ok=True);shutil.copy2(WORK/'service.dex',tree/'unknown/classes2.dex')
  # apktool copies unknown entries verbatim; include the injected service dex as a stored entry.
  run([JAVA/'java','-jar',APKTOOL,'b','-p',WORK/'framework','-o',WORK/'native-unsigned.apk',tree])
  with zipfile.ZipFile(WORK/'native-unsigned.apk') as z:assert 'classes2.dex' in z.namelist()
- target=OUT/'NaviService-V01.01.05-HudArbiter1-system.apk';sign(WORK/'native-unsigned.apk',target);return target
+ target=OUT/'NaviService-V01.01.05-HudArbiter3-HudOnly-system.apk';sign(WORK/'native-unsigned.apk',target);return target
 def replace_method(text,name,body):
  a=text.index('    private static void '+name);start=text.index('{',a);depth=1;i=start+1
  while depth:
@@ -73,4 +81,4 @@ if __name__=='__main__':
  WORK.mkdir(parents=True,exist_ok=True);OUT.mkdir(parents=True,exist_ok=True)
  compile_sources([ROOT/'tools/arcfox-hud/service-src/local/arcfox/hud/HudSelection.java',ROOT/'tools/arcfox-hud/SelectionTest.java'],WORK/'selection-tests')
  run([JAVA/'java','-cp',WORK/'selection-tests','SelectionTest'])
- outputs=[native(),gaode()];(OUT/'HudArbiter-build-report.json').write_text(json.dumps({'outputs':[str(p) for p in outputs],'base_gaode':str(BASE),'installed':False,'physical_hud_verified':False},ensure_ascii=False,indent=2));print('\n'.join(map(str,outputs)))
+ outputs=[native()] if "--native-only" in sys.argv else [native(),gaode()];(OUT/'HudArbiter-build-report.json').write_text(json.dumps({'outputs':[str(p) for p in outputs],'base_gaode':str(BASE),'installed':False,'physical_hud_verified':False},ensure_ascii=False,indent=2));print('\n'.join(map(str,outputs)))

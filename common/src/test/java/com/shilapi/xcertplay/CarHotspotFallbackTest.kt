@@ -37,8 +37,13 @@ import org.robolectric.annotation.Implements
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29], manifest = Config.NONE, shadows = [CarHotspotFallbackTest.ApState::class,
     CarHotspotFallbackTest.ManualAttachment::class, CarHotspotFallbackTest.ExistingAttachment::class,
-    CarHotspotAdbGrantTest.WritePermission::class])
+    CarHotspotAdbGrantTest.WritePermission::class, CarHotspotFallbackTest.NoLocalAdb::class])
 class CarHotspotFallbackTest {
+    @Implements(com.shilapi.xcertplay.adb.LocalAdb::class)
+    class NoLocalAdb {
+        @Implementation fun connect(mayAsk: Boolean): com.shilapi.xcertplay.adb.LocalAdb.Access =
+            com.shilapi.xcertplay.adb.LocalAdb.Access.UNREACHABLE
+    }
     private val app get() = RuntimeEnvironment.getApplication()
 
     @Before fun setUp() {

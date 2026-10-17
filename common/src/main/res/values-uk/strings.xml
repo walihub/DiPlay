@@ -842,4 +842,13 @@
     <string name="connection_help_existing_wifi">Переконайтеся, що головний пристрій та iPhone підключені до однієї мережі Wi-Fi, а її назва й пароль збігаються з налаштуваннями DiPlay, і повторіть спробу.</string>
     <string name="settings_report_on_phone">Отримати звіт на телефоні</string>
     <string name="settings_report_on_phone_hint">Відскануйте код камерою телефона, щоб відкрити сторінку в його браузері, і виберіть «Завантажити звіт». Не закривайте цей екран, доки завантаження не завершиться.</string>
+    <string name="settings_car_hotspot_control">Точка доступу автомобіля</string>
+    <string name="settings_auto_car_hotspot_system_description">Вмикає збережену точку доступу під час відкриття DiPlay і перед бездротовим підключенням. Потрібен доступ Android «Зміна системних налаштувань»; ADB не потрібен. Щоб точка доступу з’являлася й після повного перезапуску, увімкніть відкриття DiPlay після запуску автомобіля. Точка доступу автоматично не вимикається.</string>
+    <string name="settings_write_settings_granted">Доступ «Зміна системних налаштувань»: дозволено</string>
+    <string name="settings_write_settings_missing">Доступ «Зміна системних налаштувань» ще не дозволено. Дозвольте його, щоб DiPlay міг вмикати точку доступу.</string>
+    <string name="settings_write_settings_allow">Дозволити доступ</string>
+    <string name="settings_arcfox_phone_mode">Звук викликів (експериментально)</string>
+    <string name="settings_arcfox_phone_system">Системний режим</string>
+    <string name="settings_arcfox_phone_native">Пріоритет Bluetooth авто</string>
+    <string name="settings_arcfox_phone_description">Після наступного підключення. У бездротовому CarPlay звук і мікрофон передаються Bluetooth лише після підтвердження виклику того самого iPhone. Підтверджений вхідний виклик усуває повторний рингтон. Інтерфейс зберігається, Bluetooth не відключається. За невідомого стану використовується CarPlay.</string>
 </resources>

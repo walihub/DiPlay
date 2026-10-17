@@ -99,7 +99,11 @@ internal class ClusterMapPresentation(
                         if (arcfox) ArcfoxClusterDisplay.HEIGHT else DiLink51ClusterLayout.STREAM_HEIGHT,
                     )
                     transform()
-                    outputSurface = Surface(texture).also(onSurface)
+                    // The host may synchronously check outputSurface to enable wheel zoom.
+                    // Publish ownership before notifying it, including after texture recreation.
+                    val surface = Surface(texture)
+                    outputSurface = surface
+                    onSurface(surface)
                 }
                 override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = transform()
                 override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = Unit

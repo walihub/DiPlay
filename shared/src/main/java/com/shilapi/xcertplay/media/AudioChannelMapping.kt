@@ -10,6 +10,7 @@ internal enum class AudioChannelMappingMode {
 internal enum class AudioChannel {
     MEDIA,
     PHONE,
+    RING,
     ASSISTANT,
     NAVIGATION,
 }
@@ -34,6 +35,11 @@ internal data class AudioChannelSelection(
  * audio on the media bus, so it receives the configured media buffer and output route.
  */
 internal object AudioChannelMapper {
+    fun arcfoxRing(audioType: String, selection: AudioChannelSelection, arcfox: Boolean, ringing: Boolean): AudioChannelSelection =
+        if (arcfox && ringing && audioType.equals("alert", true))
+            AudioChannelSelection(AudioChannel.RING, AudioContentType.SPEECH, AudioManager.STREAM_RING)
+        else selection
+
     const val STREAM_TYPE_MAIN_HIGH_AUDIO = 102
     const val DEFAULT_NAVIGATION_STREAM_TYPE = 14
 

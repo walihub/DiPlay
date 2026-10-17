@@ -163,6 +163,24 @@ class CarPlayMediaFocusForwardingTest {
         verify(sink, never()).onMediaAudioFocusChanged(AudioManager.AUDIOFOCUS_GAIN)
     }
 
+    @Test fun arcfoxRawWheelTrackKeysDoNotControlPhoneWhileNativeSourceOwnsMusic() {
+        val controller = mock(CarPlayController::class.java).also(controllers::add)
+        val sink = spy(AndroidMediaSink()).also(sinks::add)
+        start(controller, sink)
+        `when`(controller.activeAirPlaySessionToken()).thenReturn(Any())
+        `when`(controller.sendMediaButton(anyInt())).thenReturn(true)
+        ReflectionHelpers.setField(CarPlayMediaKeys, "vehicleMusicExclusive", true)
+        val adapter = com.shilapi.xcertplay.vehicle.VehicleMediaAdapter
+        ReflectionHelpers.setField(adapter, "profileEnabled", true)
+        ReflectionHelpers.setField(adapter, "carPlayOwnsMusic", false)
+        val next = com.shilapi.xcertplay.airplay.CarPlayMediaButton.NEXT
+        assertFalse(CarPlayMediaKeys.onArcfoxWheelMediaKey(next))
+        verify(controller, never()).sendMediaButton(anyInt())
+        ReflectionHelpers.setField(adapter, "carPlayOwnsMusic", true)
+        assertTrue(CarPlayMediaKeys.onArcfoxWheelMediaKey(next))
+        verify(controller).sendMediaButton(next)
+    }
+
     private fun start(controller: CarPlayController, sink: AndroidMediaSink,
         clearInitialGrant: Boolean = true): AudioManager.OnAudioFocusChangeListener {
         `when`(controller.nowPlayingSnapshot()).thenReturn(CarPlayNowPlaying())

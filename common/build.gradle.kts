@@ -11,6 +11,10 @@ android {
         .withGroovyBuilder {
             getProperty("java").withGroovyBuilder {
                 "srcDir"("../tools/arcfox-hud/service-src")
+                "srcDir"("../tools/arcfox-bluetooth/java")
+                "srcDir"("../tools/arcfox-kuwo/java")
+                "srcDir"("../tools/arcfox-kuwo/dudu-java")
+                "srcDir"("../tools/arcfox-kuwo/pip-java")
             }
         }
     namespace = "com.shilapi.xcertplay.host"

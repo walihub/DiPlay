@@ -1,0 +1,1 @@
+package android.media.session;import java.util.*;public class MediaSessionManager {public final List<MediaController> sessions=new ArrayList<>();public List<MediaController> getActiveSessions(Object o){return sessions;}}

@@ -879,4 +879,13 @@
     <string name="connection_help_existing_wifi">تأكد من اتصال وحدة السيارة وiPhone بشبكة Wi-Fi نفسها وأن اسمها وكلمة مرورها يطابقان إعدادات DiPlay، ثم أعد المحاولة.</string>
     <string name="settings_report_on_phone">الحصول على التقرير عبر هاتف</string>
     <string name="settings_report_on_phone_hint">امسح الرمز بكاميرا الهاتف لفتح هذه الصفحة في متصفحه، ثم اختر «تنزيل التقرير». أبقِ هذه الشاشة مفتوحة حتى يكتمل التنزيل.</string>
+    <string name="settings_car_hotspot_control">نقطة اتصال السيارة</string>
+    <string name="settings_auto_car_hotspot_system_description">يشغّل نقطة اتصال السيارة المحفوظة عند فتح DiPlay وقبل الاتصال اللاسلكي. يحتاج DiPlay إلى إذن Android «تعديل إعدادات النظام»؛ لا يلزم ADB. لتتوفر نقطة الاتصال بعد إعادة التشغيل الكاملة، فعّل أيضًا فتح DiPlay بعد تشغيل السيارة. لا يتم إيقاف نقطة الاتصال تلقائيًا.</string>
+    <string name="settings_write_settings_granted">إذن «تعديل إعدادات النظام»: مسموح</string>
+    <string name="settings_write_settings_missing">إذن «تعديل إعدادات النظام» غير مسموح بعد. اسمح به ليتمكن DiPlay من تشغيل نقطة الاتصال.</string>
+    <string name="settings_write_settings_allow">السماح بالإذن</string>
+    <string name="settings_arcfox_phone_mode">صوت المكالمات (تجريبي)</string>
+    <string name="settings_arcfox_phone_system">إعداد النظام</string>
+    <string name="settings_arcfox_phone_native">تفضيل بلوتوث السيارة</string>
+    <string name="settings_arcfox_phone_description">يسري عند الاتصال التالي. في CarPlay اللاسلكي، يتوقف صوت المكالمة والميكروفون عند تأكيد مكالمة بلوتوث لنفس iPhone. يمنع تكرار الرنين عند تأكيد المكالمة الواردة الأصلية. تبقى الواجهة ولا يتم فصل بلوتوث. عند تعذر التأكد يُستخدم CarPlay.</string>
 </resources>
