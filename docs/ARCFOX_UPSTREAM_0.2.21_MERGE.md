@@ -25,6 +25,12 @@
 
 ## 验证边界
 
-执行仓库 AGENTS.md 要求的 shared/common/home 单元测试、mobile/home/maphost lint 与 Debug 构建。测试结果在完成后记录。
+执行仓库 AGENTS.md 要求的 shared/common/home 单元测试、mobile/home/maphost lint 与 Debug 构建。结果：BUILD SUCCESSFUL，257 个任务。
+
+- shared：1689 项，失败 0，错误 0，跳过 1。
+- common：1666 项，失败 0，错误 0，跳过 0。
+- samples/home：6 项，失败 0，错误 0，跳过 0。
+
+构建日志及结果汇总：`build/arcfox-release/0.2.21-merge-validation/`。另已通过公开源码凭据检查。
 
 本次未连接车机、未安装任何 APK。离线测试不能替代车机音频、仪表显示和方向盘实测。
