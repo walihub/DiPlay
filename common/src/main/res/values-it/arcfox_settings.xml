@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_vehicle_profile_reconnect">La configurazione del veicolo si applica alla prossima connessione CarPlay.</string>
+    <string name="settings_arcfox_profile_summary">ARCFOX T usa la mappa e l’area sicura del quadro strumenti, la scheda di navigazione, le indicazioni HUD, lo zoom dal volante, la musica, le chiamate, i tasti vocali e l’icona ARCFOX. L’audio mantiene i canali selezionati.</string>
+    <string name="settings_arcfox_safe_area_hint">Area predefinita: 920×432, con margini di 500 a sinistra/destra, 288 in alto e 0 in basso. Trascina i bordi verdi e salva per la prossima connessione CarPlay. Ripristina riporta a questa area.</string>
+    <string name="settings_arcfox_safe_area_live_hint">Regola i bordi verdi nell’anteprima. Salva e riconnetti CarPlay per applicare l’area.</string>
+    <string name="settings_arcfox_t">ARCFOX T</string>
+    <string name="settings_cluster_navigation_only">Mostra la mappa nel quadro solo durante la navigazione</string>
+    <string name="settings_cluster_navigation_only_description">Mostra la mappa nel quadro strumenti quando inizia la navigazione su iPhone; la nasconde quando termina o CarPlay si disconnette. Attivo per impostazione predefinita su ARCFOX. Le modifiche si applicano subito.</string>
+    <string name="settings_arcfox_phone_mode">Audio chiamate (experimental)</string>
+    <string name="settings_arcfox_phone_system">Impostazione di sistema</string>
+    <string name="settings_arcfox_phone_native">Preferisci il Bluetooth del veicolo</string>
+    <string name="settings_arcfox_phone_description">Si applica alla prossima connessione. Con CarPlay wireless, cede l’audio e il microfono solo dopo aver confermato una chiamata Bluetooth dello stesso iPhone; evita la suoneria duplicata quando la chiamata nativa in arrivo è confermata. Mantiene l’interfaccia CarPlay e non disconnette il Bluetooth. Se lo stato è sconosciuto usa CarPlay.</string>
+</resources>

@@ -1,6 +1,9 @@
 package com.shilapi.xcertplay
 
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
+import android.os.Build
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -12,6 +15,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.SeekBar
+import android.widget.Switch
 import android.widget.RadioButton
 import android.widget.ScrollView
 import android.widget.TextView
@@ -78,6 +82,27 @@ class CarPlayHostSettingsTest {
         controllers.close()
     }
 
+    @Test
+    @Config(sdk = [28, 29, 32])
+    fun callPopupSwitchRequiresBydAndAndroid10() {
+        val description = activity.getString(R.string.settings_hide_byd_call_popup_description)
+        setField("settingsMenuCategoryKey", "vehicle")
+        assertFalse(CarHotspotSetup.isBydHeadUnit(activity))
+        val otherMenu = invoke("buildSettingsMenu") as View
+        assertFalse(views(otherMenu).filterIsInstance<Switch>().any { it.contentDescription == description })
+        shadowOf(activity.packageManager).installPackage(PackageInfo().apply {
+            packageName = "com.byd.carsettings"
+            applicationInfo = ApplicationInfo().apply {
+                packageName = "com.byd.carsettings"
+                flags = ApplicationInfo.FLAG_SYSTEM
+            }
+        })
+        assertTrue(CarHotspotSetup.isBydHeadUnit(activity))
+        val bydMenu = invoke("buildSettingsMenu") as View
+        assertEquals(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
+            views(bydMenu).filterIsInstance<Switch>().any { it.contentDescription == description })
+    }
+
     @Test fun disabledGesturePersistsAndDoesNotOpenTheMenu() {
         AirPlayPersistence.saveSettingsGestureFingers(activity, 0)
         invoke("loadPersistedSettings")
@@ -123,7 +148,9 @@ class CarPlayHostSettingsTest {
             assertTrue(kotlin.math.abs(titleBounds.exactCenterY() - closeBounds.exactCenterY()) <= 1f)
             assertTrue(panel.top > 0)
             assertTrue(panel.bottom < height)
-            val scroll = views(panel).filterIsInstance<ScrollView>().first()
+            val scroll = views(panel).filterIsInstance<ScrollView>().first {
+                it.getChildAt(0) is android.widget.FrameLayout
+            }
             fun action(label: Int) = views(panel).filterIsInstance<Button>().first { it.text == activity.getString(label) }
             // Save stays pinned below the list while it scrolls.
             val save = action(R.string.save_and_reconnect)
@@ -132,11 +159,95 @@ class CarPlayHostSettingsTest {
             panel.offsetDescendantRectToMyCoords(save, bounds)
             assertTrue(bounds.top >= scroll.bottom)
             assertTrue(bounds.bottom <= panel.height)
-            // Exit ends CarPlay: it is the last item of the list, never pinned next to Save.
+            // Exit ends CarPlay: it stays at the end of the More page, never pinned next to Save.
             val exit = action(R.string.exit_application)
-            val list = scroll.getChildAt(0) as ViewGroup
-            assertTrue(list.getChildAt(list.childCount - 1) === exit)
+            val pageHost = scroll.getChildAt(0) as ViewGroup
+            val morePage = pageHost.getChildAt(pageHost.childCount - 1) as ViewGroup
+            assertTrue(morePage.getChildAt(morePage.childCount - 1) === exit)
+            assertTrue(views(scroll).any { it === exit })
         }
+    }
+
+    @Test fun categoryNavigationShowsOnePageAndKeepsSavePinned() {
+        invoke("openSettingsMenu")
+        val panel = (menu() as ViewGroup).getChildAt(0)
+        val scroll = views(panel).filterIsInstance<ScrollView>().first {
+            it.getChildAt(0) is android.widget.FrameLayout
+        }
+        val pages = scroll.getChildAt(0) as ViewGroup
+        assertEquals(1, (0 until pages.childCount).count { pages.getChildAt(it).visibility == View.VISIBLE })
+        val save = views(panel).filterIsInstance<Button>().first {
+            it.text == activity.getString(R.string.save_and_reconnect)
+        }
+        assertFalse(views(scroll).contains(save))
+
+        views(panel).filterIsInstance<Button>().first {
+            it.text == activity.getString(R.string.settings_display)
+        }.performClick()
+        assertEquals("display", field("settingsMenuCategoryKey"))
+        assertEquals(1, (0 until pages.childCount).count { pages.getChildAt(it).visibility == View.VISIBLE })
+        fun page(key: String) = (0 until pages.childCount).map(pages::getChildAt).single { it.tag == key }
+        assertTrue(views(page("display")).filterIsInstance<TextView>().any {
+            it.text == activity.getString(R.string.frame_rate)
+        })
+        assertTrue(views(page("display")).filterIsInstance<TextView>().any {
+            it.text == activity.getString(R.string.carplay_dock)
+        })
+        assertFalse(views(page("display")).filterIsInstance<TextView>().any { it.text == "HEVC (H.265)" })
+        assertTrue(views(page("advanced")).filterIsInstance<TextView>().any { it.text == "HEVC (H.265)" })
+        assertTrue(views(page("vehicle")).filterIsInstance<Button>().any {
+            it.text == activity.getString(R.string.settings_gesture_fingers, 3)
+        })
+    }
+
+    @Test
+    @Config(qualifiers = "en-w320dp-h480dp-xhdpi")
+    fun narrowHighDensityMenuKeepsCategoryAndActionsInThePanel() {
+        setField("settingsMenuCategoryKey", "more")
+        invoke("openSettingsMenu")
+        val overlay = menu() as ViewGroup
+        repeat(2) {
+            overlay.measure(View.MeasureSpec.makeMeasureSpec(640, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(960, View.MeasureSpec.EXACTLY))
+            overlay.layout(0, 0, 640, 960)
+        }
+        val panel = overlay.getChildAt(0) as ViewGroup
+        assertTrue(panel.left > 0 && panel.right < overlay.width)
+        val contentScroll = views(panel).filterIsInstance<ScrollView>().first {
+            it.getChildAt(0) is android.widget.FrameLayout
+        }
+        val save = views(panel).filterIsInstance<Button>().first {
+            it.text == activity.getString(R.string.save_and_reconnect)
+        }
+        val exit = views(contentScroll).filterIsInstance<Button>().first {
+            it.text == activity.getString(R.string.exit_application)
+        }
+        assertFalse(views(contentScroll).contains(save))
+        assertTrue(exit.width <= contentScroll.width)
+        assertEquals("more", field("settingsMenuCategoryKey"))
+    }
+
+    @Test
+    @Config(qualifiers = "en-w1920dp-h1080dp-mdpi")
+    fun appearanceChangeRestoresContentScrollRatherThanCategoryRail() {
+        setField("settingsMenuCategoryKey", "display")
+        invoke("openSettingsMenu")
+        fun layoutMenu() {
+            repeat(2) {
+                menu().measure(View.MeasureSpec.makeMeasureSpec(1920, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY))
+                menu().layout(0, 0, 1920, 1080)
+            }
+        }
+        layoutMenu()
+        (field("settingsMenuContentScroll") as ScrollView).scrollTo(0, 180)
+        assertEquals(180, (field("settingsMenuContentScroll") as ScrollView).scrollY)
+        AirPlayPersistence.saveAppAppearance(activity, AppAppearance.LIGHT)
+        invoke("refreshAppAppearance")
+        layoutMenu()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("display", field("settingsMenuCategoryKey"))
+        assertEquals(180, (field("settingsMenuContentScroll") as ScrollView).scrollY)
     }
 
     @Test
@@ -158,6 +269,21 @@ class CarPlayHostSettingsTest {
     @Config(qualifiers = "ar-rSA-w600dp-h720dp-mdpi")
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun arabicLargeFontSwipeMenuScreenshot() = checkSwipeMenuScreenshot("upstream-swipe-arabic-large-font.png", 600, 720)
+
+    @Test
+    @Config(qualifiers = "en-w600dp-h720dp-mdpi")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun compactGroupedMenuScreenshot() = checkSwipeMenuScreenshot("grouped-swipe-compact-large-font.png", 600, 720)
+
+    @Test
+    @Config(qualifiers = "en-w1920dp-h1080dp-mdpi")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun fullGroupedMenuScreenshot() = checkSwipeMenuScreenshot("grouped-swipe-full-large-font.png", 1920, 1080)
+
+    @Test
+    @Config(qualifiers = "ar-rSA-w600dp-h720dp-mdpi")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun arabicGroupedMenuScreenshot() = checkSwipeMenuScreenshot("grouped-swipe-arabic-large-font.png", 600, 720)
 
     @Test fun closeButtonDiscardsEditsWithoutRestartingCarPlay() {
         val controller = attachController()
@@ -199,6 +325,56 @@ class CarPlayHostSettingsTest {
             gesture(configured, y = -500f)
             assertFalse(field("menuOpen") as Boolean)
         }
+    }
+
+    @Test fun optedInUpwardGestureRevealsBarsWithoutOpeningSettingsAndDownwardGestureKeepsWorking() {
+        setField("temporarySystemBarsEnabled", true)
+        invoke("applyFullscreenMode")
+        gesture(3, y = -500f)
+        assertFalse(field("menuOpen") as Boolean)
+        assertTrue(field("temporarySystemBarsVisible") as Boolean)
+        assertTrue(AirPlayPersistence.loadHideTopBar(activity))
+        assertTrue(AirPlayPersistence.loadHideBottomBar(activity))
+        gesture(3)
+        assertTrue(field("menuOpen") as Boolean)
+        assertFalse(field("temporarySystemBarsVisible") as Boolean)
+    }
+
+    @Test fun releasingFingersAfterBarPeekCannotGenerateStrayCarPlayTouches() {
+        val controller = mock(CarPlayController::class.java)
+        setField("controller", controller)
+        setField("temporarySystemBarsEnabled", true)
+        touch(MotionEvent.ACTION_DOWN, 1, 100f)
+        touch(MotionEvent.ACTION_POINTER_DOWN, 2, 100f)
+        touch(MotionEvent.ACTION_POINTER_DOWN, 3, 100f)
+        touch(MotionEvent.ACTION_MOVE, 3, -300f)
+        assertTrue(field("temporarySystemBarsVisible") as Boolean)
+        touch(MotionEvent.ACTION_POINTER_UP, 3, -300f)
+        touch(MotionEvent.ACTION_UP, 1, -300f)
+        assertEquals(false, field("gestureSequenceActive"))
+        // Exactly one empty-release when gesture tracking started; no mismatched CarPlay UP.
+        org.mockito.Mockito.verify(controller, org.mockito.Mockito.times(1)).sendTouch(emptyList())
+    }
+
+    @Test fun temporaryBarsSettingIsStagedInFullscreenSettingsAndDiscardable() {
+        AirPlayPersistence.saveTemporarySystemBars(activity, false)
+        invoke("loadPersistedSettings")
+        assertEquals(false, field("temporarySystemBarsEnabled"))
+        invoke("openSettingsMenu")
+        val controls = invoke("buildFullscreenSection") as ViewGroup
+        views(controls).filterIsInstance<Switch>()
+            .single { it.contentDescription == activity.getString(R.string.temporary_system_bars_description) }
+            .performClick()
+        assertEquals(true, field("temporarySystemBarsEnabled"))
+        assertFalse(AirPlayPersistence.loadTemporarySystemBars(activity))
+        invoke("cancelSettingsEdits")
+        assertEquals(false, field("temporarySystemBarsEnabled"))
+        invoke("openSettingsMenu")
+        setField("temporarySystemBarsEnabled", true)
+        invoke("persistMenuSettings")
+        invoke("loadPersistedSettings")
+        assertTrue(AirPlayPersistence.loadTemporarySystemBars(activity))
+        assertEquals(true, field("temporarySystemBarsEnabled"))
     }
 
     @Test fun liftingAFingerCancelsTrackingUntilTheNextGesture() {
@@ -386,6 +562,63 @@ class CarPlayHostSettingsTest {
         assertTrue(field("handshakeResetInProgress") as Boolean)
     }
 
+    // #848: a fresh install keeps the default car hotspot mode, and a driver on USB never sets it up.
+    @Test fun savingWorksWhileTheUnusedCarHotspotIsNotSetUp() {
+        AirPlayPersistence.saveWirelessEnabled(activity, false)
+        AirPlayPersistence.saveWirelessHotspotMode(activity, WirelessHotspotMode.MANUAL)
+        AirPlayPersistence.saveManualHotspotSsid(activity, "")
+        invoke("loadPersistedSettings")
+        attachController()
+        invoke("openSettingsMenu")
+        resolutionSlider().progress = 0
+        saveButton().performClick()
+        assertFalse("Save and reconnect left the menu open", field("menuOpen") as Boolean)
+        assertEquals(CarPlayDisplayScale.MIN_TENTHS, AirPlayPersistence.loadDisplayScaleTenths(activity))
+        assertEquals(1, field("restartGeneration"))
+    }
+
+    // Switching to wireless puts the hotspot to use, so its details are checked although nobody touched them.
+    @Test fun switchingToWirelessChecksTheUnsetHotspot() {
+        AirPlayPersistence.saveWirelessEnabled(activity, false)
+        AirPlayPersistence.saveWirelessHotspotMode(activity, WirelessHotspotMode.MANUAL)
+        AirPlayPersistence.saveManualHotspotSsid(activity, "")
+        invoke("loadPersistedSettings")
+        attachController()
+        invoke("openSettingsMenu")
+        setField("wirelessEnabled", true)
+        saveButton().performClick()
+        assertTrue("Save stored wireless CarPlay without a hotspot", field("menuOpen") as Boolean)
+        assertEquals("connection", field("settingsMenuCategoryKey"))
+        val message = field("manualHotspotErrorView") as TextView
+        assertEquals(View.VISIBLE, message.visibility)
+        assertEquals(activity.getString(R.string.hotspot_ssid_is_required), message.text.toString())
+        assertFalse(AirPlayPersistence.loadWirelessEnabled(activity))
+        assertEquals(0, field("restartGeneration"))
+    }
+
+    @Test fun aRejectedHotspotEditOpensTheConnectionPageWithItsMessage() {
+        AirPlayPersistence.saveWirelessHotspotMode(activity, WirelessHotspotMode.MANUAL)
+        AirPlayPersistence.saveManualHotspotSsid(activity, "Car hotspot")
+        AirPlayPersistence.saveManualHotspotPassphrase(activity, "password1")
+        AirPlayPersistence.saveManualHotspotSecurity(activity, ManualHotspotSecurity.WPA2)
+        invoke("loadPersistedSettings")
+        attachController()
+        invoke("openSettingsMenu")
+        views(menu()).filterIsInstance<Button>().first { it.text == activity.getString(R.string.settings_more) }
+            .performClick()
+        setField("manualHotspotSsid", "")
+        saveButton().performClick()
+        assertTrue(field("menuOpen") as Boolean)
+        assertEquals("connection", field("settingsMenuCategoryKey"))
+        assertEquals(View.VISIBLE, views(menu()).first { it.tag == "connection" }.visibility)
+        assertEquals(View.GONE, views(menu()).first { it.tag == "more" }.visibility)
+        val message = field("manualHotspotErrorView") as TextView
+        assertEquals(View.VISIBLE, message.visibility)
+        assertEquals(activity.getString(R.string.hotspot_ssid_is_required), message.text.toString())
+        assertEquals("Car hotspot", AirPlayPersistence.loadManualHotspotSsid(activity))
+        assertEquals(0, field("restartGeneration"))
+    }
+
     @Test fun failedStartupWhileMenuIsOpenRecoversOnCancel() {
         attachController()
         invoke("openSettingsMenu")
@@ -413,6 +646,57 @@ class CarPlayHostSettingsTest {
         assertEquals(View.VISIBLE, (field("wifiRecoveryButton") as View).visibility)
         assertEquals(0, field("restartGeneration"))
         assertFalse(field("reconnectScheduled") as Boolean)
+    }
+
+    // #873: a second CarPlay mode request failed while the iPhone was already switching, the switch
+    // completed and the same attempt reached its control loop; the retry then tore that session down.
+    @Test fun aRetryDoesNotTearDownAnAttemptThatRecoveredAfterItsFailure() {
+        attachController()
+        report(CarPlayStatus.Failed("CarPlay configuration request transferred -1 of 1 bytes"))
+        assertTrue(field("reconnectScheduled") as Boolean)
+        report(CarPlayStatus.RunningControl)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3))
+        assertEquals(0, field("restartGeneration"))
+        assertFalse(field("reconnectScheduled") as Boolean)
+    }
+
+    @Test fun aRetryStillRestartsAnAttemptThatDidNotRecover() {
+        attachController()
+        report(CarPlayStatus.Failed("CarPlay configuration request transferred -1 of 1 bytes"))
+        report(CarPlayStatus.WaitingForIphone)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3))
+        assertEquals(1, field("restartGeneration"))
+    }
+
+    // A loss after the recovery, inside the retry's delay, is dropped because a retry is pending,
+    // so that retry has to restart: otherwise nothing would reconnect.
+    @Test fun aRetryStillRestartsWhenTheRecoveredAttemptFailsAgain() {
+        attachController()
+        report(CarPlayStatus.Failed("CarPlay configuration request transferred -1 of 1 bytes"))
+        report(CarPlayStatus.RunningControl)
+        report(CarPlayStatus.Failed("USBMUX write transferred -1 of 218 bytes"))
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3))
+        assertEquals(1, field("restartGeneration"))
+    }
+
+    @Test fun aRetryStillRestartsWhenTheRecoveredAttemptsControlEnds() {
+        attachController()
+        report(CarPlayStatus.Failed("CarPlay configuration request transferred -1 of 1 bytes"))
+        report(CarPlayStatus.RunningControl)
+        report(CarPlayStatus.ControlEnded)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3))
+        assertEquals(1, field("restartGeneration"))
+    }
+
+    @Test fun aRetryStillRestartsWhenTheRecoveredAttemptLosesItsTransport() {
+        attachController()
+        report(CarPlayStatus.Failed("CarPlay configuration request transferred -1 of 1 bytes"))
+        report(CarPlayStatus.RunningControl)
+        val listener = activity.javaClass.getDeclaredMethod("createSessionListener", Int::class.javaPrimitiveType)
+            .apply { isAccessible = true }.invoke(activity, 0) as AirPlaySessionListener
+        listener.onTransportError("transport lost")
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3))
+        assertEquals(1, field("restartGeneration"))
     }
 
     @Test fun savingWirelessAfterWifiResetFailureStillRequiresManualRecovery() {
@@ -616,6 +900,31 @@ class CarPlayHostSettingsTest {
         assertEquals(edited, AirPlayPersistence.loadSafeAreaRect(activity, 1920, 942))
     }
 
+    @Test fun localBlackCornerSettingPreviewsWithoutChangingVideoSessionAndCanBeCancelled() {
+        assertEquals(0, AirPlayPersistence.loadBlackCornerRadiusDp(activity))
+        val maskLayer = field("blackCornerOverlay") as CarPlayBlackCornerOverlay
+        val root = maskLayer.parent as ViewGroup
+        assertTrue(root.indexOfChild(field("videoView") as View) < root.indexOfChild(maskLayer))
+        assertTrue(root.indexOfChild(maskLayer) < root.indexOfChild(field("gestureOverlay") as View))
+        invoke("openSettingsMenu")
+        val mask = field("blackCornerOverlay") as CarPlayBlackCornerOverlay
+        assertEquals(0, mask.radiusDp)
+        setField("blackCornerRadiusDp", 36)
+        mask.radiusDp = 36
+        assertEquals(36, mask.radiusDp)
+        invoke("cancelSettingsEdits")
+        assertEquals(0, mask.radiusDp)
+        assertEquals(0, AirPlayPersistence.loadBlackCornerRadiusDp(activity))
+        // The local overlay is saved with the other menu settings and survives a settings reload.
+        invoke("openSettingsMenu")
+        setField("blackCornerRadiusDp", 24)
+        invoke("persistMenuSettings")
+        invoke("loadPersistedSettings")
+        assertEquals(24, mask.radiusDp)
+        assertEquals(24, AirPlayPersistence.loadBlackCornerRadiusDp(activity))
+        invoke("cancelSettingsEdits")
+    }
+
     private fun resizeWindow(width: Int, height: Int) {
         val sizeClass = Class.forName("com.shilapi.xcertplay.CarPlayHostActivity\$DisplaySize")
         val size = sizeClass.getDeclaredConstructor(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
@@ -636,6 +945,7 @@ class CarPlayHostSettingsTest {
             AirPlayPersistence.saveAppAppearance(activity, AppAppearance.LIGHT)
             invoke("refreshAppAppearance")
         }
+        if (name.contains("grouped")) setField("settingsMenuCategoryKey", "display")
         invoke("openSettingsMenu")
         val root = menu()
         repeat(3) {
@@ -694,6 +1004,8 @@ class CarPlayHostSettingsTest {
     }
 
     private fun menu() = field("settingsMenu") as View
+    private fun saveButton() = views(menu()).filterIsInstance<Button>()
+        .single { it.text == activity.getString(R.string.save_and_reconnect) }
     private fun resolutionSlider() = views(menu()).filterIsInstance<SeekBar>()
         .first { it.max == CarPlayDisplayScale.MAX_PERCENT - CarPlayDisplayScale.MIN_PERCENT }
     private fun gestureButton() = views(menu()).filterIsInstance<Button>()

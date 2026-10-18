@@ -18,10 +18,10 @@ android {
 
     defaultConfig {
         applicationId = "com.shihab.diplay"
-        minSdk = 25
+        minSdk = 24
         targetSdk = 37
-        versionCode = 38
-        versionName = if (nativeMfiBuild) "0.2.19-arcfox-native-mfi" else "0.2.19"
+        versionCode = 40
+        versionName = if (nativeMfiBuild) "0.2.21-arcfox-native-mfi" else "0.2.21"
         resValue("bool", "arcfox_native_mfi", nativeMfiBuild.toString())
 
     }
