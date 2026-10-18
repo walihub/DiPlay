@@ -11,6 +11,8 @@ import com.shilapi.xcertplay.vehicle.arcfox.ArcfoxSessionAdapter
 interface VehicleSessionAdapter {
     fun onSessionStarted(alive: () -> Boolean, generation: () -> Int) {}
     fun onSessionEnded() {}
+    /** Reuse route state only while the same physical iAP2 control generation is open. */
+    fun retainNavigationForReconnect(generation: Int): Boolean = false
     fun onControlOpened(token: Any, generation: Int) {}
     fun onControlEnded(token: Any) {}
     fun onNavigation(frame: Iap2Frame, currentControl: Boolean) {}
@@ -28,8 +30,8 @@ object VehicleAdapters {
         if (VehicleProfiles.isArcfox(context)) ArcfoxSessionAdapter(context, owner) else DefaultSession
 
     fun registerVoiceKey(context: Context, sendMedia: (Int) -> Boolean = { false },
-        requestSiri: () -> Boolean) =
-        if (VehicleProfiles.isArcfox(context)) ArcfoxHardKeys.register(context, sendMedia, requestSiri) else null
+        interceptMediaKey: (Int) -> Boolean = { false }, requestSiri: () -> Boolean) =
+        if (VehicleProfiles.isArcfox(context)) ArcfoxHardKeys.register(context, sendMedia, interceptMediaKey, requestSiri) else null
 
     /** Profile-specific input selection; Arcfox never probes BYD's autoservice. */
     fun motionEnabled(context: Context): Boolean =

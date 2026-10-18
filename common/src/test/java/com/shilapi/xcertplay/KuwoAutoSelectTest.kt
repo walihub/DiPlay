@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay
 
 import android.media.session.MediaController
+import android.media.AudioAttributes
 import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
@@ -81,6 +82,36 @@ class KuwoAutoSelectTest {
     }
     private fun state(playing: Boolean) = PlaybackState.Builder()
         .setState(if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED, 0, 1f).build()
+
+    @Test fun watcherKeepsOriginalKuwoSessionWithNonstandardUsage() {
+        ShadowBuild.setFingerprint("AAOP_COCKPIT/test")
+        val app = RuntimeEnvironment.getApplication()
+        val manager = app.getSystemService(MediaSessionManager::class.java)
+        val session = MediaSession(app, "kuwo-nonstandard-usage")
+        val controller = MediaController(app, session.sessionToken)
+        val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).build()
+        val info = ReflectionHelpers.callConstructor(MediaController.PlaybackInfo::class.java,
+            ReflectionHelpers.ClassParameter.from(Int::class.javaPrimitiveType, 1),
+            ReflectionHelpers.ClassParameter.from(Int::class.javaPrimitiveType, 2),
+            ReflectionHelpers.ClassParameter.from(Int::class.javaPrimitiveType, 15),
+            ReflectionHelpers.ClassParameter.from(Int::class.javaPrimitiveType, 5),
+            ReflectionHelpers.ClassParameter.from(AudioAttributes::class.java, attributes),
+            ReflectionHelpers.ClassParameter.from(String::class.java, null))
+        shadowOf(controller).setPackageName(AutoSelectionPolicy.KUWO)
+        shadowOf(controller).setPlaybackInfo(info)
+        shadowOf(controller).setPlaybackState(state(true))
+        shadowOf(manager).addController(controller)
+        try {
+            KuwoAutoSelect.watch(app)
+            val watch = ReflectionHelpers.getStaticField<Any>(KuwoAutoSelect::class.java, "current")
+            val visible = ReflectionHelpers.callInstanceMethod<List<MediaController>>(watch, "music")
+            assertEquals(listOf(controller), visible)
+        } finally {
+            KuwoAutoSelect.stop()
+            shadowOf(manager).clearControllers()
+            session.release()
+        }
+    }
 
     @Test fun realWatcherAutomaticallyChoosesPluginAndRejectsManualSelectionAndNewRivalWhileQueued() {
         ShadowBuild.setFingerprint("AAOP_COCKPIT/test")

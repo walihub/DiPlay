@@ -21,7 +21,9 @@ internal class ArcfoxHudControlState(private val nanoTime: () -> Long = System::
         }
     }
 
-    @Synchronized fun isAlive(generation: Int): Boolean = generation in controls.values ||
+    @Synchronized fun isOpen(generation: Int): Boolean = generation in controls.values
+
+    @Synchronized fun isAlive(generation: Int): Boolean = isOpen(generation) ||
         (generation == closedGeneration && nanoTime() - closedAt < HANDOFF_GRACE_NS)
 
     companion object { private const val HANDOFF_GRACE_NS = 5_000_000_000L }

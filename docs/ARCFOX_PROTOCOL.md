@@ -164,7 +164,7 @@ APK 采用逐字符编码，DiPlay 使用整串 GBK 编码；常用中英文路�
 
 ## 5. 仪表音乐协议
 
-2026-10-16 更新：当前媒体完善版优先使用原车 IFgeComService 消息 114 直接输出 mediatype=19，进度／封面／恢复和源所有权实现见 [媒体方案与验收](ARCFOX_MEDIA_COMPLETION_PLAN_20261016.md)、[直连协议证据](ARCFOX_MEDIA_DIRECT_TRANSPORT_AUDIT_20261016.md)。下述 5.1 描述旧 Link 兼容通路，保留用于首次直连不可用时的回退。一个连接会话固定一条成功通路；不会来回切换。直连不是 ADSBus 原生 CarPlay 音乐入口，不伪造连接状态。
+2026-10-17 更新：根据实车封面故障和用户决定，当前版本固定使用 ARCFOX Link 音乐转发，不调用直连发送器。直连实现和历史证据保留查阅，不作为运行时回退，不同时发送两条链路。改动仅涉及媒体，不触发电话、蓝牙连接或导航控制。车机安装的 Link 与参考 v17 APK SHA256 一致：`0c8b4ae5fbb5428a434f011953c4181822d619f69829813673e849b325f04434`。
 
 ### 5.1 当前使用的 ARCFOX Link 路径
 
@@ -189,7 +189,7 @@ Component: com.carlinx.arcfox.carlink/.CarLifeMusicReceiver
 
 仪表服务下游通过 HIDL `MSG_MEDIA_ID3INFO=114` 输出 JSON，命令为 `{"id":"meidainfo","sub":"id3info"}`。ARCFOX Link 来源的 `mediatype=19`；内容包括 `songname`、`singername`、`totalplaytime`、`curplaytime`、`status`、`mute`、`albumpic`、`singlelyric`、`lyric`。下游时长转为秒，封面采用文件名。
 
-DiPlay 当前不主动发送歌词；封面超过上限或 transfer ID 不匹配时跳过。仅播放位置改变时不重复发送广播，因此 `progress` 随歌曲、状态或封面更新发送，不是持续的进度刷新通道。会话释放时发送空歌曲及停止状态。
+CarPlay 上游以标题承载的单句歌词仍由 title 转发，没有新增完整歌词接口。封面超过上限或 transfer ID 不匹配时跳过。接收器每帧新建 MusicInfo，因此每个实际发出的歌曲／歌词／状态帧都携带当前匹配的封面，避免下一帧清空封面。普通进度 tick 不单独广播；封面恢复帧仍定期重发，progress 随上述帧更新。让出媒体所有权时停止发送，不覆盖其他来源；会话释放仅在仍持有所有权时发送空歌曲及停止状态。
 
 ### 5.2 仪表服务原生 CarPlay 音乐入口
 
@@ -238,19 +238,181 @@ Action: adayo.keyEvent.onKeyLongPress.N6
 Extra:  InputKey，Int，231 或 219
 ```
 
-当前只在匹配平台的投影 Activity 启动时注册，停止时注销。触发 Siri 还要求投影页面拥有窗口焦点、没有当前通话、DiPlay 有可用会话。接收器不终止广播，原车接收器仍可能同时响应；这不是独占按键或完整原生 CarPlay 仲裁协议。
+原有广播路径保持不变：只在匹配平台的投影 Activity 启动时注册，停止时注销；仍要求窗口焦点、原有通话状态判断和可用会话。接收器不终止广播，原车接收器仍可能同时响应；这不是独占按键或完整原生 CarPlay 仲裁协议。下述新输入层不改此路径。
 
 原版可选无障碍方向盘按键服务是另一条路径，仍按原版设置运行。
 
 实现：[ArcfoxHardKeys.kt](../shared/src/main/java/com/shilapi/xcertplay/orchestration/ArcfoxHardKeys.kt)。
 
+### 7.1 2026-10-17 语音长按不触发 Siri 的实车定位
+
+本轮仅定位，未修改或安装。用户在 DiPlay 已连接状态长按三次、短按一次，确认“长按无原车语音、无 Siri；短按原车语音”。日志与输入服务 APK 保存在 `diagnostics/arcfox-siri-key-20261017/`，反编译位于 `build/arcfox-siri-key/input-service/`。
+
+已确认故障发生在输入事件分发，而非 Siri 音频或认证阶段：
+
+- 三次长按分别于 20:26:33.435、38.677、46.619 到达原车输入服务（PID2927），MCU keycode=231、keyAction=2，转为 Android `ACTION_MULTIPLE / KEYCODE_VOICE_ASSIST`，内部识别 `PRESS_DOWN_LONG / RCV_LONG`。
+- 每次均进入 `InputVRKey.onPress`：原生 CarPlay 连接判断 `valueWired=null, valueWireless=null, false`；HiCar / FoxLink 也未连接；原车调用状态为 2；`getLastConnDeviceType=CARPLAY`，于是执行 `CarplayHardManager.wakeUpActivateView()`。N60AB 分支请求 `ADAYO_SOURCE_BCM` 下的 `SourceType=ADAYO_SOURCE_CONNECT_SETTING`，用于打开原车互联界面，不会请求 DiPlay Siri。
+- `InputVRKey.onPress/onRelease` 该分支没有发送 `adayo.keyEvent.onKeyLongPress.N6`。实际复现日志中也未见此广播或 `DiPlay-ArcfoxKeys` 的 Siri 请求记录。输入服务 APK 内其他按键存在 N6 广播，但不能推定语音键也发送。
+- DiPlay 的上述长按广播接收器确实已注册（PID19222，UID10082），会话服务也在运行；当前 `ArcfoxHardKeys` 只识别该广播内 `InputKey=231/219`。它没有收到本次实际 MCU 长按路径，故不能调用 `controller.requestSiri()`。不能把“注册成功”视为“固件会分发该事件”。
+- 20:26:50.921 的短按走 `RCV_SHORT`，20:26:51.052 从 `InputVRKey.onRelease` 调用 `CommonFuncManager.openVoiceVR()`，与用户观察一致。
+
+来源：车机 `/system/app/CarHardKeyInputService/CarHardKeyInputService.apk`，SHA256 `d4185e027fea389a2e08ff29c27776c0804c9b58d85ab9cae925b65d80ca25bd`。精确代码为 `com.adayo.service.car.inputservice.keys.InputVRKey.onPress/onRelease` 和 `manager.CarplayHardManager.wakeUpActivateView`。
+
+后续修复边界：保留短按原车语音，长按仅在 DiPlay CarPlay 会话满足条件时转 Siri；必须接入实际可观测的按键源，或由输入服务在这一分支定向转交，不能只增加当前广播的重复监听或延时。尚未确认能够仅改 DiPlay 即截获此分支，不应先宣称无须配套。不要为让按键走原生 CarPlay 分支而伪造原生连接状态，避免引入电话／音频／互联抢占。窗口焦点和通话状态的二级条件应在真实按键到达后继续验证，本轮没有证据将其作为首因。
+
+**仅修改 DiPlay 的可实施方向与验证边界**
+
+用户随后明确允许人为保证原车互联与 DiPlay 不同时运行，不要求并行互联兼容。因此可优先采用只在 DiPlay 增加原始车辆按键订阅的方案，不先修改原车 APK，也不伪造原生 CarPlay 连接。
+
+已有 2026-10-07 的 `car-service.txt` 证实固件存在 `HW_KEY_INPUT=0x11410a10`（INT32_VEC、ON_CHANGE），且由 `InputHalService` 消费；原车按键 APK 继承 `CarInputHandlingService` 并注册自定义键过滤。这给 DiPlay 在上游车辆 HAL 订阅同一原始事件提供了接口依据。不能复用现有只读车速轮询器的 CarPropertyManager 轮询来替代按键事件订阅，不能抢占或取消原车已有订阅。
+
+对照 Android 11 官方 `CarInputService.onKeyEvent`：自定义原车输入处理先于普通输入捕获；VOICE_ASSIST 本身也是提前返回的专用分支。因此普通 Activity／无障碍或 CarInputManager 全键捕获并不是已证实能截获此键的修复。官方 VehicleHalManager 按 callback client 管理订阅，可作为新增独立 VHAL 订阅的设计依据，但不替代极狐定制实现的验证。
+
+后续 DiPlay 实现应仅在真实极狐且自身 CarPlay 会话有效时启动独立监听，仅处理语音键 231 的长按，直接调用已有会话的 requestSiri；短按不请求 Siri，不写 VHAL 属性，不改变原车电话／媒体／互联状态。事件应按时间戳和按下周期去重，释放自身订阅、重连代次隔离，并确认实际原始数组格式，不能仅按 Android KeyEvent 日志推断 raw action 数值。
+
+这是“仅 DiPlay 订阅原始事件并唤起 Siri”的候选方案，尚未完成实车订阅权限和实际回调验证。VHAL 旁路观察不能消费原车输入服务的事件，故不能承诺阻止其 wakeUpActivateView 动作；若后续仍要求彻底禁止原车界面动作，需要另外核对拦截能力。车机目前 offline，本轮未再测试服务接口或修改代码。
+
+官方对照源码已保存至诊断目录 `aosp-android11-CarInputService.java`、`aosp-android11-InputHalService.java`、`aosp-android11-VehicleHalManager.cpp`；来源分别为 Android 官方 android11-release 分支的 packages/services/Car 与 hardware/interfaces，不是本机 OEM CarService 的反编译结果，不能将两者混同。
+
+**与嘟嘟控制酷我的链路核对**
+
+当前 `KuwoExternalVehicle.State.register()` 接收 `adayo.keyEvent.onKeyDown.N6`，`KeyPolicy.raw()` 识别 `InputKey=87/88`（兼容旧别名 16/15），再经酷我 MediaSession 的 skipToNext/skipToPrevious 控制切歌。原车 `InputMediaNextKey/InputMediaPrevKey` 代码确实显式调用 `CommonFuncManager.sendKeyBroadcastN6`；语音 `InputVRKey` 没有此调用。因此已成功的酷我控制证明普通应用可接收媒体键广播，不能证明同一广播中存在语音键。DiPlay 收到有效语音长按后可以直接使用已有 requestSiri，无须嘟嘟或酷我转发；此次需要补齐的是语音事件源，原始 VHAL 订阅仍是仅修改 DiPlay 的候选方案，不能简单把酷我接收器复制后换键码即视为修复。
+
+### 7.2 2026-10-17 Siri 长按输入适配（历史验证版，已撤销）
+
+本次只增加极狐长按事件源。新增层只读取和归一化极狐按键，输出本 Activity 内的 `VOICE_ASSIST DOWN/UP`，随后经过完全未改动的原版 `dispatchKeyEvent → requestLegacySiri / 已配置的语音键分支 → controller.requestSiri → 活跃 AirPlay 会话`。
+
+复查后撤销初版超出输入接入范围的改动：不再给原版 `requestLegacySiri` 增加 400ms 去重，不额外增加通话拦截，不改接已有 N6 广播。原版已分配语音键的判断与去重继续按原代码运行，原版 Siri、电话、音频及连接策略均不改。
+
+- 仅 Android 8.0 及以上、真实极狐指纹且选择极狐配置时创建输入适配；投影 Activity 启动时挂接、停止时释放，有活跃 CarPlay 会话才订阅。
+- `ArcfoxVehicleKeyHidl` 独立订阅 Vehicle HIDL 2.0 的 `HW_KEY_INPUT=0x11410a10`，只读 `timestamp/action/keyCode/display`；没有 `set` 调用，不替换原车输入处理器，不取消其他客户端的订阅。
+- 只处理主屏语音键 231/219 的长按：支持显式 action=2，以及 DOWN/UP 持续达到系统长按阈值。短按不转换为 Siri。一次物理长按中的重复包只转换一次，不限制不同长按之间的触发频率。
+- 保留自身订阅的生命周期校验：断开、会话切换或关闭后，旧订阅排队中的事件不再交给新会话。此处不操作连接，也不修改 DiPlay 的重连流程。
+- Binder 连接和释放在串行工作线程执行，活跃会话中每 5 秒探测；订阅失败保留原有按键通道。日志标签 `DiPlay-ArcfoxKeys` 可区分订阅成功、原始事件、归一化结果；原版 `Siri: voice key ... sent=...` 记录会话请求结果。
+
+代码：`common/.../vehicle/arcfox/ArcfoxVoiceKeyInput.kt`、`ArcfoxVehicleKeyHidl.java` 和 `CarPlayHostActivity.kt`。HIDL 的 104 字节 VehiclePropValue、12 字节 SubscribeOptions 及回调 IBase 布局按已保存的官方 Android 11/VNDK30 ABI 核对；离线测试覆盖批量解码、异常字段、长短按、单次长按重复包、订阅释放和会话切换，以及原版 Siri 分支接入。另加回归测试，确认未向原版入口新增去重或通话策略。
+
+**验证边界：**车机已离线，尚未确认本固件的 VHAL 订阅权限及实际回调。OEM Android 日志已确认 action=2，但 OEM 原始 VHAL 数组仍待实车核对。离线测试完成不代表实车长按已验证成功。该订阅不能阻止原车 `wakeUpActivateView`；按用户约定，原车互联与 DiPlay 人为避免同时运行。本次不修改原车输入服务、嘟嘟、NaviService、电话、音频和认证。
+
+初版全量检查记录为 `build/arcfox-siri-key/full-ci-final.log`；精简修订应以 `build/arcfox-siri-key/minimal-ci.log` 和对应新安装包为准，初版 SiriWheel 包已被修订版本替代。
+
+精简版离线验收：完整 CI 成功（shared 1489 项，其中原有 1 项跳过；common 1411 项；零失败）。mobile/home/maphost 的 debug lint 和 APK 构建通过。`WheelSiriWindowTest` 在 SDK28/33 上确认新增输入复用原版语音键，并且未新增原版入口的去重或通话拦截。
+
+精简版交付：`车机适配/DiPlay-0.2.19-Arcfox-SiriLongPress-system.apk`（车机资料根目录下），SHA256 `a332d4420b95a58e004381ee8c13d159bde85fc43f05ae95cabebb7b7572bbcd`。发布版 assemble/lint 和系统签名校验通过；认证资源与原安装包逐字节一致。未安装至车机。
+
+### 7.3 2026-10-18：Siri 改用原版可分配按键
+
+用户实测上一验证版长按仍触发系统功能。撤掉新增 VHAL 观察层及其生命周期代码、编译保留规则和对应试验测试，不再将观察事件当作接管系统长按。原车语音长按行为不改变，旧 N6 长按广播兼容路径保留，不宣称当前固件会发送它。
+
+可用证据来自已采集 `CarHardKeyInputService`：`InputMediaNextKey` / `InputMediaPrevKey` 短按确实发送 `adayo.keyEvent.onKeyDown.N6`，`InputKey=87/88`，兼容参考 CarLife 的旧别名16/15。增加该广播到原版 Siri 按键学习窗口，以及已分配键的 `dispatchKeyEvent` 入口。只在用户显式开启并分配该键时作为 Siri，未分配仍为原切歌；其他角色的学习不增加此接收器。
+
+使用：原版设置中的方向盘 Siri 按键开启并学习“下一首短按”（也可上一首）。DiPlay 前台且原有会话/通话条件允许时，走原版 Siri 请求；该键在 DiPlay 中改作 Siri，不能同时保留其直接切歌用途。没有新增开关、Siri协议、全局限频或原车 APK 修改。
+
+同一次已作为 Siri 消费的键复用 `CarPlayMediaKeys` 已有350ms跨来源去重，避免后到同方向 MediaSession/CarLink 回调再次切歌。普通广播不能阻止原车其他接收者，也无法撤回先到的媒体回调；此处仅处理 DiPlay 内部后到重复路径，仍需实车确认事件顺序及使用效果。
+
 ## 8. 认证与权限边界
 
-Android 系统签名用于车机权限，与 MFi 认证相互独立。本次适配没有修改 MFi、配对、认证初始化、原版协议解析或认证资源构建配置。
+Android 系统签名用于车机权限，与 MFi 认证相互独立。常规适配版保持原认证方式；2026-10-18 的独立原生鉴权验证版见第 8.2 节，仍复用原有手机认证协议。
 
 源码包含认证实现，默认不包含运行认证文件。独立本地认证构建仍按 [BUILD.md](BUILD.md) 使用外部 `DIPLAY_AUTH_ASSETS_DIR`，提供 `offline-mfi/identity.pk8`、`offline-mfi/certificate.p7b`。协议文档和源码提交不保存认证私钥或系统签名密钥。
 
-原车自带 CarPlay 不代表可导出认证私钥，也不代表 DiPlay 已能使用其认证芯片或厂商服务；目前没有确认原车认证复用接口。
+原车自带 CarPlay 不代表可导出认证私钥，也不代表 DiPlay 已能使用其认证芯片或厂商服务。2026-10-17 已完成下述静态链路和设备信息核对；尚未进行认证接口调用或 DiPlay 接入验证。
+
+### 8.1 极狐原生认证调研（2026-10-17，仅信息采集）
+
+设备：`192.167.122.96:5555`。本轮仅通过 ADB 读取包、配置、设备节点元数据和 socket 列表，复制程序到本机做反编译／ELF 分析。未安装、修改代码、停止服务、绑定测试服务、调用认证、探测芯片寄存器、读取私钥或配对数据库。`/proc/<pid>/maps` 读取被拒绝，未尝试提权。
+
+**实际组件和链路**
+
+| 组件 | 作用及证据 |
+| --- | --- |
+| `com.adayo.carplay.view`，2.2.8_5119 / 147 | 原车备份中的 `Apple CarPlay_2.2.8_5119.apk` 是前端界面；它的证书／签名回调返回 null，不能据此判断后台认证不可用 |
+| `com.adayo.carplay`，2.2.8_5119 / 147 | `/system/app/CarPlay/CarPlay.apk` 是实际后台；`CarPlaySDKAdapter$4.requestCertificateData/requestChallengeResponse` 优先调用 `MFiClientApiImpl` |
+| `mfiserver` | `/system/bin/mfiserver`，root 进程；init 配置 `/system/etc/init/mfiserver.rc`，abstract UNIX socket `@com.adayo.service.mfi` 实际存在 |
+| `libMFiClientJni.so` / `libmfi_client.so` / `libmfi_ipcsocket.so` | JNI 和本地 IPC 客户端，提供认证请求与回调 |
+| `libmfi.so` / `libauthic_hal.so` | 服务端认证分发和硬件 HAL；前者调用 `iAPAuthICCommandRunOnce`，后者实现证书读取和挑战响应 |
+| `/dev/ipod_i2c` | `MFiServerConfig.json` 的实际 `AuthICPath`；节点存在，字符设备 10:117、root:root、0666，SELinux 当前为 Permissive。未打开节点。HAL 字符串里的默认 `/dev/IpodI2c` 与实际配置不同，应以配置为准 |
+
+已核对的原生链路：
+
+```text
+CarPlaySDKAdapter 的认证回调
+  → MFiClientApiImpl.requestCertificateData / RequestChallengeResponse
+  → com.adayo.mficlient.Proxy.Authentication
+  → libMFiClientJni → 本地 IPC → mfiserver
+  → MFiMFiRequestAuthData → iAPAuthICCommandRunOnce
+  → libauthic_hal → /dev/ipod_i2c
+```
+
+`MFiClientApiImpl$4.onAuthenticationUpdate` 有真实写回实现：action 0 填充证书序列号，1 填充证书数据，2 填充挑战响应。`MessageAuthData` 的 Java 字段为 `byte[] data`、`int length`。请求由 `Proxy.Authentication(int, MessageAuthData)` 发出；签名请求传入挑战字节，返回由硬件生成的响应。这里没有导出私钥的接口；复用这条链路无需把车机私钥变成 DiPlay 的离线私钥文件。
+
+**不能直接使用的表面接口及已确认限制**
+
+- `com.adayo.mfiservice/.MFiService` 虽然 exported=true，且 `com.adayo.mfiserviceproxy.IMFiService` 声明 `requestCertificateSN`、`requestCertificateData`、`requestChallengeResponse`，对应事务号 6、7、8，但本机该包的 `JNIAdapter$MFiCallback.onAuthenticationUpdate` 是空方法，未见证书／签名的有效结果写回。不能把 AIDL 方法存在当作可用证明。它与上面真实后台的 `MFiClientApiImpl` 是不同实现。
+- 原生后台 `MFiClientApiImpl.connectMFiServer()` 还会初始化 `MusicSoa` 和 `CallState`。不能整套复制进 DiPlay；后续应只封装认证请求和回调，避免重新引入电话／音乐控制。
+- 服务端认证结果走 `MFiIPCService_Socket.sendMessage`；其 `SendQueueMessage` 遍历会话列表发送。认证消息中未见每请求 ID。多个客户端同时请求同类签名时，存在响应错配风险；DiPlay 本地串行队列不足以证明与原生后台并发安全。接入必须避开原生 CarPlay 正在认证的窗口，并验证断线／超时／重连的旧响应隔离。
+- 已读取的 `/system/etc/public.libraries*.txt`（含 qti 扩展）及 vendor 列表未列出 MFi／authic／basic 库。文件存在不等于 DiPlay 的 linker namespace 允许加载；当前 DiPlay targetSdk=37。直接加载 JNI 和全部传递依赖的可见性尚未实测，系统签名不能替代这项确认。
+- `/dev/ipod_i2c` 是厂商字符设备，不是 `/dev/i2c-N`。DiPlay 现有 `LinuxI2cTransport` 校验路径并使用标准 I2C 后端，不能只把设置路径替换成该节点。直接操作节点还会引入与 mfiserver 的硬件争用，因此不作为首选。
+- HAL 函数名包含 `20c`，但尚未读取证书公钥类型、实际签名长度或协议版本；不能据此写死 `protocolMajor=2`。证书是否为原始 DER／PKCS#7，以及返回签名的 RSA／ECDSA 格式，都应在后续获准的功能验证中确认。
+
+**DiPlay 后续适配所需的最小边界（尚未实施）**
+
+现有 `MfiAuthenticator` 已抽象 `protocolMajor()`、`readCertificate(maximumOutputLength)`、`signChallenge(byte[])`，可新增极狐原车认证后端，仍由原来的 iAP2 和 AirPlay 流程调用，不重写手机认证协议。入口在 `CarPlayController.startMfi()` / `MfiSession`；当前应用缺省选择 LOCAL，不会自动使用车机硬件。
+
+后续先验证最小 IPC 认证客户端及依赖可见性；仅在真实极狐匹配、后端健康且原生认证无竞争时选择。若原车后端验证失败，应明确报错或由用户选择既有认证方式，不在同一次握手中途混用两套证书／签名。iAP2 请求和 AirPlay `/auth-setup` 都需覆盖；`MfiSapAuthSetup` 现有逻辑根据协议版本选择摘要，不能固定沿用离线 EC 客户端的 P-256 假设。不需要为此修改 NaviService、嘟嘟、蓝牙电话或媒体转发。
+
+本轮已备齐用于离线研究的后台 APK、MFi APK、JNI／HAL／IPC 库、mfiserver、配置和接口证据。仍缺的均为后续功能验证：应用进程能否加载依赖并连接 IPC、证书格式和协议版本、随机挑战的签名校验、原生与 DiPlay 的并发隔离、iPhone 有线／无线认证接受情况。此次没有为获取这些结论而发起任何认证请求，不声称已可替换认证方式。
+
+**版本与证据**
+
+- `CarPlay-core.apk` SHA256：`da02cde4e0a7d24f6abe8c146c41cc4aecc9868d48eeae148967184bc0592f81`。
+- `MFiService.apk` SHA256：`5d8a5f61ef16f63d33b0ec7bd5e53c2d9324de2ee5f31517f94d346cb20ed7c1`（8155 / 180）。
+- `libauthic_hal.so` SHA256：`636f6c91318a99603dd4278659be3119edc6a66a850bfca87e79d302395e59f4`。
+- 原车文件本机副本及反编译：`build/native-carplay-auth/`；运行身份、配置、导出符号和反汇编：`diagnostics/native-carplay-auth-20261017/`。未存入私钥、配对数据库或认证响应内容。
+
+**补充：原机无线 CarPlay 实测流程日志（同日 20:21—20:23）**
+
+用户正常连接原机无线 CarPlay 并确认成功；反馈此前与 DiPlay 有竞争。只读连续日志已停止，文件为 `diagnostics/native-carplay-auth-20261017/native-auth-reproduction-redacted.log`（11215 行，过滤 450 行认证数据／敏感内容）。成功后服务快照为同目录 `native-connected-services.txt`。未触发测试签名、安装或更改设置。
+
+分离早期竞争／重连段后，原生 PID2213 的最终成功时间线如下：
+
+| 时间 | 实测事件 |
+| --- | --- |
+| 20:22:56.434 | mfiserver / libmfi 记录 iAP2 `Authentication Success` |
+| 20:22:56.595—56.609 | 原生 AirPlay `Control pair-verify 1/2` |
+| 20:22:56.616—56.617 | `readChallengeResponse_CB → onReadChallengeResponse → MFiClientApiImpl.onRequestChallengeResponse` |
+| 20:22:56.617 | mfiserver 收到 MID=AA / LID=02；HAL 指向 `/dev/ipod_i2c` |
+| 20:22:57.079 | HAL 返回，原生客户端收到认证结果 `onAuthenticationUpdate action: 2`；本次约 462ms |
+| 20:22:57.171 | 原生 CarPlay 会话 CREATE，网络接口 wlan1、transportType=2 |
+| 20:22:57.350 | 同一原生会话 STARTED；用户确认原机无线连接成功 |
+
+这补足了“原生后台确实通过 IPC 请求硬件签名并成功建立无线会话”的运行证据。日志还包含 DiPlay PID13741 的独立 `/auth-setup` 请求及若干重连；不能将它们拼接成 DiPlay 已经使用原车硬件的证明。原生成功不等于 DiPlay 进程加载权限、签名格式识别、并发隔离和新后端均验证通过；证书缓存场景也不能提供一次全新的证书读取／格式验证。这些继续留在后续功能验证范围。
+
+### 8.2 原生鉴权验证版（2026-10-18）
+
+在 Siri 长按精简版基础上新增独立构建参数 `-ParcfoxNativeMfi=true`。普通构建默认为 false，仍使用原认证方式。验证版 versionName 为 `0.2.19-arcfox-native-mfi`、包名和系统签名不变，可覆盖测试；原离线鉴权安装包另行保留。
+
+验证版不携带 `offline-mfi` 文件，不加载应用内历史离线身份，认证设置中保存的旧后端选择不作为本验证版的实际后端。仅接受真实极狐固件，启动时显式进入原车 `mfiserver`，失败报错，不自动回退到离线/远程/USB 认证。恢复常规鉴权需安装保留的普通版本。
+
+**实现边界**
+
+- `ArcfoxNativeMfi` 实现原有 `MfiAuthenticator`，`MfiSession` 负责关闭它；iAP2 和 AirPlay `/auth-setup` 继续使用原有流程。
+- 使用 Android `LocalSocket` 连接 ABSTRACT `com.adayo.service.mfi`。不加载厂商 JNI、不开硬件节点、不导出私钥，不调用原车电话、音乐、互联握手或音源控制。
+- 只注册认证 MID `AA`。帧头 `5A A5 01`，后跟 4 字节大端总长（含 7 字节头）；体为 MID、action。注册体 `5B 00 AA`；读取证书请求 `AA 01`；签名请求 `AA 02 + u32be(length) + digest`；响应 `AA action + u32be(length) + data`。
+- 上述字段来自本车已采集二进制的真实反汇编：`libmfi_ipcsocket.so` 中 `MFiIPCClient::sendMessage` 0x1455c、`MFiIPCMessageAuthData::Encoder/Decoder` 0x1e13c/0x1e2c0；`libmfi_client.so` 的 `MFiClientAuthentication` 0x7e94、`MFiClientRegistration` 0x8114；`mfiserver` 的 `MFiProxy::Authentication` 0x11244。不是猜测 Android Binder 表面接口。
+- 读取证书后解析 accessory leaf，支持 RSA-1024 / MFi v2（20 字节 SHA-1 摘要）和 P-256 / MFi v3（32 字节 SHA-256 摘要）。不因函数名含 20c 就固定版本。宣布认证就绪前，发送随机挑战并用证书公钥验证；未知密钥类型或签名格式拒绝启动。
+- 每个实际挑战都验证返回签名与当前挑战/证书匹配，再交给原有协议。RSA 按 SHA-1 DigestInfo 验证，EC 接收原始 r||s 或 DER 并统一返回协议所需的 64 字节形式。不会二次哈希手机已提供的摘要。
+- 单客户端串行请求，读超时 5 秒；帧长、数据长、action 不匹配、超时或验签失败均关闭当前 socket，避免继续复用错位响应。不记录证书、摘要或签名字节。
+
+**实车边界**
+
+本轮车机离线，没有安装或发起实际硬件认证。已有日志仅证明原生后台能用该服务认证成功，不能证明 DiPlay 进程拥有 socket/SELinux 访问权限。实际证书格式、签名类型、iPhone 有线/无线接受情况仍需安装验证版确认。
+
+该服务没有每请求 ID，响应会分发给注册同类消息的客户端。应用内串行和验签能够拒绝错误响应，不能隔离原生后台的并发请求。测试时必须保持原车互联断开、不与 DiPlay 同时认证；不通过强停原车服务或修改电话/音源状态实现隔离。此版本不承诺支持两套互联并行。
+
+构建：`python3 tools/arcfox-vehicle/build_diplay.py --native-mfi --output build/arcfox-release/DiPlay-0.2.19-Arcfox-NativeMfi-system.apk`。构建器显式检查没有打包离线凭据，并验证系统签名；普通构建的原有资源逐字节校验继续保留。
+
+验证与交付：完整 CI 成功（shared1493 项、common1411 项，零失败、1 项原有跳过）；补充启动集成测试 9 项、后端测试 4 项通过。release assemble/lint、系统签名、`arcfox_native_mfi=true` 资源值与无离线认证文件的 APK 检查通过。安装包：`车机适配/原生鉴权验证版/DiPlay-0.2.19-Arcfox-NativeMfi-system.apk`，SHA256 `b08fc3e153589374dc4ce38dd1e194aa2e8b48ba64422a4457b59a28df1f490a`。原普通版保持不变。报告：`build/arcfox-release/Arcfox-NativeMfi-validation.json`。未安装、未实车验证。
 
 ## 9. 验证记录与后续实车检查
 
@@ -593,3 +755,32 @@ DiPlay 和共存高德只通过 `HudSourceClient` 提交状态，不再作为独
 CarPlay 主屏空白背景跟随 CarPlay 昼夜模式刷新，不再只在 DiPlay 设置主题改变时刷新。参考 `CarLife_4.0.0_ARCFOX_VoiceLongPress_v4.apk` 的 `ArcfoxHardKeyReceiver`，极狐 `adayo.keyEvent.onKeyDown.N6` 中 `InputKey=16/15` 分别转发 CarPlay 下一首/上一首，限投影主屏有焦点、会话有效且未通话时；Android 标准媒体键路径保持原样。MediaSession 显式声明媒体键和传输控制能力。
 
 仪表地图由隐藏转显示时立即检查极狐 HIDL 订阅，不再只依赖30秒周期重试；HIDL仍是被动多订阅，不截断原车地图链路。导航无声的差异定位到0.2.19对16 kHz Opus流的反馈时钟修改：仅极狐 `default/alert` 导航流暂时恢复旧版48 kHz反馈，其余音频尤其电话流维持上游时钟。此为待实车复核的兼容假设，不能由单元测试证明声音已恢复。原车地图偶发缩放失效也需实车记录 NaviService/原车高德链路，DiPlay 的被动订阅代码不能证明其原因。
+
+
+## 2026-10-18：导航声音焦点尾部与仪表/HUD重连修复
+
+### 导航播报结束后的音乐恢复
+
+用户明确现象为“导航播报结束后，音乐较久才恢复音量”。原极狐导航11通道计时是末次非空PCM后700ms，并且待解码队列与AudioTrack全部排空才释放；全零PCM同样申请/刷新焦点。连续静音包、已写静音尾、正常WRITE_BLOCKING期间持续排队均可让音乐长时间不恢复，原实现不能保证700ms后释放。
+
+仅在极狐导航11焦点路径修复：PCM16严格非零采样才申请/续期，不设响度阈值；保持全部PCM写入，不剪音、不改音量。维护只等待已写入的最后非零帧真正播放完，不等待其后零PCM或未解码队列变空。下一句有效PCM在写入前使用原焦点请求流程申请。原500ms失败重试、Siri/电话优先及其他通道策略保留。
+
+静默保护由700ms降为200ms。准确释放条件为“距末次有效PCM至少200ms，且最后有效帧已播完”，在下一次renderer维护释放。10ms是空队列poll等待，不是硬实时保证；阻塞写入/解码可延后维护，不能宣称200–210ms一定恢复。非零噪声尾仍按有效音频处理，避免误切微弱语音。
+
+### 断开再连接的仪表和HUD
+
+原AirPlay结束无条件清空导航状态和HUD缓存，且新session不主动恢复隐藏的仪表窗口。同一iAP2导航仍有效时，AirPlay短断后不一定重发导航起始帧，因而可能持续隐藏。
+
+极狐现在只在同一代、连续打开的iAP2控制连接中保留路线；AirPlay输出停止期间继续接收当前导航/停止更新，恢复输出时复用仍有效路线并主动恢复仪表Presentation。新controller、控制通道完全断开或换代不复活旧路线。旧视频流在重建/transport error时立即标为inactive并隐藏。HUD输出token和导航缓存token分离，防止重连时丢弃排队中的停止帧；旧controller仍被隔离。
+
+完整iAP2重连仍每次发 `StartRouteGuidanceUpdates(0x5200)`（有线与无线原流程均已核对）；等待手机新的0x5201当前路线数据后自动恢复，不能仅凭0x5202预加载maneuver推断正在导航。没有修改NaviService、原车导航中间服务或地图缩放。
+
+本轮均为本地源码与离线测试定位，车机实效仍待复测。
+
+首次构造边界验收：Controller构造期间尚未初始化无线代次，首次挂接没有导航缓存时必须短路代次回调；已补实际极狐无线Controller构造回归，正常进入认证错误而不在构造阶段抛异常。此修正不改变后续同代路线恢复。
+
+最终验收：完整CI通过（shared1508项、common1410项，共2918项，0失败、1原有跳过），包含实际无线Controller构造、Siri学习范围、连续静音队列释放、同控制通道与完整断连恢复边界。两个release build/lint和系统签名校验通过，普通鉴权资源逐字节一致，原生鉴权版无离线凭据；APK DEX已确认不包含撤销的VHAL语音观察层或Android编译桩。
+- `/Users/h/Documents/极狐车机/车机适配/DiPlay-0.2.19-Arcfox-WheelFocusReconnect-system.apk`：SHA256 `4fab357b1f35f2496ba5a8f8a0765a091c15d30dcd917aa70464d80f6b28a500`。
+- `/Users/h/Documents/极狐车机/车机适配/原生鉴权验证版/DiPlay-0.2.19-Arcfox-WheelFocusReconnect-NativeMfi-system.apk`：SHA256 `677144334b1030186cd49d98007fc82378333574830b7a0a5a3c44f67c1ff729`。
+
+验证报告：`build/arcfox-release/Arcfox-WheelFocusReconnect-validation.json`。没有安装到车机或修改原车内容，仍需复测实际按键顺序、声音恢复及仪表HUD重连。

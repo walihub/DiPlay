@@ -7,6 +7,9 @@ plugins {
 val localAuthenticationAssets = providers.environmentVariable("DIPLAY_AUTH_ASSETS_DIR")
     .orNull?.let { file(it).canonicalFile }
 
+val nativeMfiBuild = providers.gradleProperty("arcfoxNativeMfi").map(String::toBooleanStrict).getOrElse(false)
+check(!nativeMfiBuild || localAuthenticationAssets == null) { "Native MFi build must not bundle offline authentication assets" }
+
 android {
     namespace = "com.shilapi.xcertplay"
     compileSdk {
@@ -18,7 +21,8 @@ android {
         minSdk = 25
         targetSdk = 37
         versionCode = 38
-        versionName = "0.2.19"
+        versionName = if (nativeMfiBuild) "0.2.19-arcfox-native-mfi" else "0.2.19"
+        resValue("bool", "arcfox_native_mfi", nativeMfiBuild.toString())
 
     }
 
@@ -55,6 +59,7 @@ android {
     }
     buildFeatures {
         compose = true
+        resValues = true
     }
 }
 
@@ -103,7 +108,10 @@ val verifyStandaloneAuthentication by tasks.registering {
     group = "verification"
     description = "Require the explicit runtime authentication input for a standalone car-test APK."
     val directory = localAuthenticationAssets
+    val useNativeMfi = nativeMfiBuild
+    inputs.property("nativeMfiBuild", useNativeMfi)
     doLast {
+        if (useNativeMfi) return@doLast
         check(directory != null) {
             "Standalone car builds require DIPLAY_AUTH_ASSETS_DIR; assembleDebug alone is source-only."
         }

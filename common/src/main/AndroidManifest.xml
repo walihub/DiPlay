@@ -29,6 +29,7 @@
     <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" tools:ignore="ProtectedPermissions" />
     <!-- The centre card also follows whichever launcher is the default home. -->
     <queries>
+        <package android:name="com.carlinx.arcfox.carlink" />
         <package android:name="com.nforetek.bt.customer.service" />
         <package android:name="com.adayo.service.navi" />
         <package android:name="com.byd.carsettings" />

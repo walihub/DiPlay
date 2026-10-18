@@ -103,6 +103,36 @@ class ArcfoxHudLifecycleTest {
         assertTrue(gate.isCurrent(reconnected))
     }
 
+    @Test fun routeUpdatesAcrossVideoReconnectKeepTheirControlTokenButNotAcrossOwners() {
+        val gate = ArcfoxHudSessionGate()
+        val owner = Any()
+        gate.begin(owner) { true }
+        val navigation = gate.captureNavigation(owner)!!
+        gate.end(owner)
+        // A stop frame received from the still-open iAP2 channel must invalidate the cache,
+        // including when it was queued just before the AirPlay reconnect.
+        assertEquals(navigation, gate.captureNavigation(owner))
+        gate.begin(owner) { true }
+        assertTrue(gate.isNavigationCurrent(navigation))
+        gate.resetNavigation(owner)
+        assertFalse(gate.isNavigationCurrent(navigation))
+        val current = gate.captureNavigation(owner)!!
+        gate.begin(Any()) { true }
+        assertFalse(gate.isNavigationCurrent(current))
+        assertNull(gate.captureNavigation(owner))
+    }
+
+    @Test fun cachedRouteRequiresAnOpenControlNotJustItsHandoffGrace() {
+        val controls = ArcfoxHudControlState { 0L }
+        val token = Any()
+        controls.opened(token, 7)
+        assertTrue(controls.isOpen(7))
+        assertFalse(controls.isOpen(8))
+        controls.ended(token)
+        assertTrue(controls.isAlive(7))
+        assertFalse(controls.isOpen(7))
+    }
+
     @Test fun connectionExistenceDoesNotInventAnActiveNavigationRoute() {
         val route = BydHudRouteState(retainWhileSessionAlive = { true })
         assertNull(route.currentApple())

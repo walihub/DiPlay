@@ -173,6 +173,7 @@ class CarPlayController(
     private val vehicleStatusProvider: com.shilapi.xcertplay.transport.VehicleStatusProvider? = null,
 ) : Closeable {
     private val vehicleAdapter = VehicleAdapters.session(context, this)
+    private val arcfoxNavigationReconnect = com.shilapi.xcertplay.vehicle.VehicleProfiles.isArcfox(context)
 
     init {
         require(!config.locationReportingEnabled || locationProvider != null) {
@@ -255,6 +256,7 @@ class CarPlayController(
 
 
     private val navigationState = com.shilapi.xcertplay.navigation.CarPlayNavigationState()
+    private var navigationGeneration: Int? = null
     /** Changes originate from the current iAP2 control channel; UI callbacks read the latest snapshot. */
     @Volatile var navigationListener: ((Boolean) -> Unit)? = null
     fun navigationActiveSnapshot(): Boolean = navigationState.snapshot()
@@ -339,6 +341,8 @@ class CarPlayController(
                 }
             }
             activeSession = session
+            if (replacement && arcfoxNavigationReconnect &&
+                !vehicleAdapter.retainNavigationForReconnect(vehicleControlGeneration())) clearNavigationDisplay()
             if (replacement && !closed) vehicleAdapter.onSessionStarted(::vehicleSessionAlive, ::vehicleControlGeneration)
             val btPrefs = appContext.getSharedPreferences("xcertplay_airplay", android.content.Context.MODE_PRIVATE)
             if (!com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox() &&
@@ -360,7 +364,9 @@ class CarPlayController(
         override fun onSessionEnded(session: AirPlaySession) {
             if (activeSession === session) {
                 activeSession = null
-                clearNavigationDisplay()
+                if (!arcfoxNavigationReconnect ||
+                    !vehicleAdapter.retainNavigationForReconnect(vehicleControlGeneration()))
+                    clearNavigationDisplay()
                 synchronized(albumReplayLock) { initialArtworkReplay = null }
                 BydNavigationOutputs.endNow(preserveTurnOverlay = !closed && config.transport == CarPlayTransport.WIRELESS)
                 vehicleAdapter.onSessionEnded()
@@ -798,7 +804,12 @@ class CarPlayController(
 
     // HUD (SOME/IP) and cluster (AMap broadcast) keep separate state so one failing cannot stall the other.
     private fun onRouteFrame(frame: com.shilapi.xcertplay.iap2.wire.Iap2Frame, currentControl: Boolean = true) {
-        if (!closed && currentControl) navigationState.accept(frame)?.let { navigationListener?.invoke(it) }
+        if (!closed && currentControl) {
+            val generation = vehicleControlGeneration()
+            if (arcfoxNavigationReconnect && navigationGeneration != generation) clearNavigationDisplay()
+            navigationGeneration = generation
+            navigationState.accept(frame)?.let { navigationListener?.invoke(it) }
+        }
         BydNavigationOutputs.onFrame(frame)
         vehicleAdapter.onNavigation(frame, !closed && currentControl)
         com.shilapi.xcertplay.glance.CarPlayGlance.onFrame(frame)
@@ -861,6 +872,10 @@ class CarPlayController(
         availabilityPollGeneration.incrementAndGet()
         phase = Phase.MFI
         onStatus(CarPlayStatus.DiscoveringMfi)
+        if (com.shilapi.xcertplay.mfi.ArcfoxNativeMfiDeployment.enabled(appContext)) {
+            openArcfoxNativeMfi()
+            return
+        }
         val offlineDirectory = java.io.File(appContext.noBackupFilesDir, LocalMfiAuthenticationClient.DIRECTORY)
         when (config.mfiTarget) {
             MfiTarget.LOCAL -> openLocalMfi(offlineDirectory)
@@ -883,6 +898,27 @@ class CarPlayController(
             MfiTarget.REMOTE -> {
                 debugLog("mfi discovery backend=Remote server=${config.remoteMfiServer.orEmpty()}")
                 openRemoteMfi()
+            }
+        }
+    }
+
+    private fun openArcfoxNativeMfi() {
+        debugLog("mfi discovery backend=ArcfoxNative mfiserver offlineFallback=disabled")
+        executor.execute {
+            var client: com.shilapi.xcertplay.mfi.ArcfoxNativeMfi? = null
+            try {
+                check(com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox()) {
+                    "Native MFi test build requires the captured Arcfox firmware"
+                }
+                client = com.shilapi.xcertplay.mfi.ArcfoxNativeMfi.open()
+                if (closed || phase != Phase.MFI) { client.close(); return@execute }
+                mfiSession = MfiSession(client, client)
+                debugLog("mfi native ready protocolMajor=${client.protocolMajor()} certificateBytes=${client.readCertificate().size} signatureSelfCheck=passed")
+                onStatus(CarPlayStatus.MfiReady)
+                startPhone()
+            } catch (error: Throwable) {
+                runCatching { client?.close() }
+                fail(error)
             }
         }
     }
@@ -2886,7 +2922,8 @@ class CarPlayController(
 
     private fun hasRequiredUsbService(): Boolean {
         if (usbManager != null ||
-            config.transport != CarPlayTransport.WIRED && config.mfiTarget != MfiTarget.USB_CH341) return true
+            config.transport != CarPlayTransport.WIRED && (config.mfiTarget != MfiTarget.USB_CH341 ||
+                com.shilapi.xcertplay.mfi.ArcfoxNativeMfiDeployment.enabled(appContext))) return true
         fail(IOException("USB service is unavailable on this device"))
         return false
     }

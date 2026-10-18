@@ -101,20 +101,22 @@ internal object ArcfoxHudSync {
         }
     }
 
-    fun begin(owner: Any, sessionAlive: () -> Boolean) {
+    fun begin(owner: Any, restoreNavigation: Boolean = false, sessionAlive: () -> Boolean) {
         if (!available()) return
         val token = sessions.begin(owner, sessionAlive) ?: return
         worker.execute {
             if (!sessions.isCurrent(token)) return@execute
             if (appliedSession != token) {
-                // Retire only a verifiably matching previous output, then start with a fresh
-                // cache. A skipped old clear must not prevent this explicit new session.
+                // Recreate the output lease. Only a continuously open current iAP2 control
+                // permits reusing navigation state; a new control starts with a fresh cache.
                 operationSession = token
                 sourceClient?.close()
                 sourceClient = context?.let { HudSourceClient(it) }
-                navigationState.clear()
+                if (!restoreNavigation) {
+                    navigationState.clear()
+                    route.clear()
+                }
                 retainedGuidance = null
-                route.clear()
                 writer.resume()
                 appliedSession = token
                 cleanupDeadline = Long.MAX_VALUE
@@ -129,9 +131,9 @@ internal object ArcfoxHudSync {
 
     fun onFrame(owner: Any, frame: Iap2Frame) {
         if (!available()) return
-        val token = sessions.capture(owner) ?: return
+        val token = sessions.captureNavigation(owner) ?: return
         worker.execute {
-            if (!sessions.isCurrent(token) || appliedSession != token) return@execute
+            if (!sessions.isNavigationCurrent(token)) return@execute
             if (frame.messageId == BydHudRouteState.ROUTE_GUIDANCE_UPDATE) {
                 routeFrames++; lastRouteAt = System.currentTimeMillis()
             } else if (frame.messageId == BydHudRouteState.ROUTE_GUIDANCE_MANEUVER_UPDATE) {
@@ -139,7 +141,18 @@ internal object ArcfoxHudSync {
             }
             navigationState.accept(frame)
             route.accept(frame.messageId, frame.payload)
-            publish(token)
+            sessions.current()?.let(::publish)
+        }
+    }
+
+    fun resetNavigation(owner: Any) {
+        val token = sessions.resetNavigation(owner) ?: return
+        worker.execute {
+            if (!sessions.isNavigationCurrent(token)) return@execute
+            navigationState.clear()
+            retainedGuidance = null
+            route.clear()
+            sessions.current()?.let(::publish)
         }
     }
 
@@ -152,7 +165,8 @@ internal object ArcfoxHudSync {
             appliedSession = token
             operationSession = token
             cleanupDeadline = System.nanoTime() + CLEANUP_RETRY_NS
-            route.clear()
+            // Output ends immediately, but the same open iAP2 control may still be navigating.
+            // begin() only reuses this cache when its adapter verifies that exact generation.
             transmit(null)
             event("session_end")
             lastReason = "session_end"

@@ -415,8 +415,9 @@ class CarPlayHostActivity : ComponentActivity() {
         next?.navigationListener = navigationVisibilityListener
     }
     private fun clusterNavigationVisible(): Boolean =
-        !AirPlayPersistence.loadClusterNavigationOnly(this, arcfoxVehicleProfile()) ||
-            controller?.navigationActiveSnapshot() == true
+        (!arcfoxVehicleProfile() || activeAirPlaySession != null) &&
+        (!AirPlayPersistence.loadClusterNavigationOnly(this, arcfoxVehicleProfile()) ||
+            controller?.navigationActiveSnapshot() == true)
 
     private var clusterTurnGuidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance? = null
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
@@ -1016,6 +1017,8 @@ class CarPlayHostActivity : ComponentActivity() {
             sendMedia = { press ->
                 hasWindowFocus() && activeAirPlaySession != null && !inCall(this) &&
                     CarPlayMediaKeys.onArcfoxWheelMediaKey(press)
+            }, interceptMediaKey = { code ->
+                hasWindowFocus() && dispatchArcfoxAssignedMediaKey(code)
             }, requestSiri = {
                 hasWindowFocus() && com.shilapi.xcertplay.hud.BydCarPlayCall.current() == null &&
                     controller?.requestSiri() == true
@@ -1603,6 +1606,17 @@ class CarPlayHostActivity : ComponentActivity() {
     private fun requestLegacySiri(keyCode: Int) {
         val sent = controller?.requestSiri() == true
         appendLog("Siri: voice key $keyCode sent=$sent")
+    }
+
+    /** Only an explicitly assigned N6 media key is diverted from its existing media action. */
+    private fun dispatchArcfoxAssignedMediaKey(code: Int): Boolean {
+        val event = KeyEvent(KeyEvent.ACTION_DOWN, code)
+        if (activeAirPlaySession == null || inCall(this) ||
+            !WheelZoomSettings.isSiriKey(this, WheelKey.of(event))) return false
+        CarPlayMediaKeys.arcfoxMediaKeyConsumedAsSiri(code)
+        dispatchKeyEvent(event)
+        dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+        return true
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -4930,6 +4944,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     activeAirPlaySession = session
                     CarPlayBackgroundSession.active = true
                     vehicleCluster.onSessionStarted()
+                    if (arcfoxVehicleProfile()) ensureClusterPresentation()
                     showConnectionHelp(null)
                     callPopupSessionReady = true
                     updateCallPopupGuard()
@@ -4974,6 +4989,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     activeAirPlaySession = null
                     CarPlayBackgroundSession.active = false
                     vehicleCluster.onSessionEnded()
+                    if (arcfoxVehicleProfile()) ensureClusterPresentation()
                     callPopupSessionReady = false
                     updateCallPopupGuard()
                     if (menuOpen) {
@@ -4995,7 +5011,9 @@ class CarPlayHostActivity : ComponentActivity() {
                     callPopupSessionReady = false
                     updateCallPopupGuard()
                     startupRetryBudget.disconnected()
+                    if (arcfoxVehicleProfile()) activeAirPlaySession = null
                     vehicleCluster.onSessionEnded()
+                    if (arcfoxVehicleProfile()) ensureClusterPresentation()
                     if (menuOpen) {
                         recoveryPendingAfterMenu = true
                         return@runOnUiThread
@@ -5629,6 +5647,11 @@ class CarPlayHostActivity : ComponentActivity() {
         startupRetryButton?.visibility = View.GONE
         appendLog(reason)
         activeScreenStreamTypes.clear()
+        if (arcfoxVehicleProfile()) {
+            activeAirPlaySession = null
+            clusterPresentation?.setStreamActive(false)
+            ensureClusterPresentation()
+        }
         updateVehicleClusterCardLink()
         ClusterActivityOutput.setStreamActive(false)
         setConnectionStage(reason)

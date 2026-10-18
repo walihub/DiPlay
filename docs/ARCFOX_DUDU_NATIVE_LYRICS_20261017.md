@@ -68,3 +68,13 @@ patch_lyrics(decoded_directory)
 本版原车与 CarPlay 均先发布原标题／封面事件，再发布歌词事件。原车相同metadata不会重复标题事件；metadata更新但歌词内容没变时，标题事件后仍重放当前歌词快照。CarPlay title之外的metadata/art变化也会让原manager重发标题，因此同样在它之后恢复当前行。进度单独刷新，不重发整首歌词。
 
 集成stub已模拟真实副作用：`a(title,artist,cover)` 将 lyricVisible=false，`a(List,offset)` 根据列表恢复。测试断言事件顺序及最后可见状态，覆盖逐句title、同title元数据变更和原车同歌词封面变化。
+
+## 逐句切换频闪修复（2026-10-17，v15）
+
+上面的“先清空再恢复”虽然最终能显示，但会使歌词界面在每个 title 更新时短暂退出。13 个原 UI 的 MAIN 标题订阅器还会重置默认封面、清空歌词列表。现在 MediaBridge 在主线程同步发布自己的非空 CarPlay title 时设置 ThreadLocal 标记，并在 finally 中撤销；仅这些订阅器在完成标题更新后跳过重置尾部。原车、其他播放器、退出清空事件的分支完整保留。普通原车回调没有此标记。
+
+manager 的封面事件缓存 p.j 在此作用域内不再清空，以便新打开的卡片仍能获得封面；相同 bitmap 不再随每句歌词重复发布。新的歌词行继续替换当前行，未扩展为完整歌词或播放列表接口。
+
+`patch_stable_metadata(decoded)` 与全部媒体 Java 一起使用，不可只替换 Java。合包入口 `tools/arcfox-media/build_lyrics_stable.py --source <当前APK> --output <输出APK>` 仅替换 classes.dex 和 classes5.dex，逐项验证其余文件字节一致。组合构建 `build_dudu_fixes.py` 也已接入该补丁。
+
+v15 基于车机实装 v12（SHA256 `286828cf849ffe4afd548d2dfc640ee23c86e5415f952e0b6bbe4d40b5700271`），保留图标、轮控、车辆数据及权限。输出 SHA256 `726e851c70df9d509b8f6989619dfb01a042bc67d8e64b86158b5242a1f9acaf`。`sh tools/arcfox-media/test.sh` 通过：涵盖逐句更新期间重置次数不增加、相同封面不重发、空值/切源仍清空，以及 13 个原 UI 方法的标题保留、原分支保留、独立寄存器和幂等检查。安装不等于实车频闪验收，最终需连接 CarPlay 播放逐句歌词观察。

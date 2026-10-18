@@ -57,8 +57,21 @@ class ClusterNavigationOnlyTest {
             assertNull(presentation())
             `when`(controller.navigationActiveSnapshot()).thenReturn(true)
             visibilityChanged.invoke(true)
+            assertNull(presentation()) // Route state alone must not display a disconnected video stream.
+            ReflectionHelpers.setField(host, "activeAirPlaySession",
+                mock(com.shilapi.xcertplay.airplay.AirPlaySession::class.java))
+            visibilityChanged.invoke(true)
             val shown = presentation()!!
             assertTrue(shown.isShowing)
+            ReflectionHelpers.setField(host, "activeAirPlaySession", null)
+            refresh()
+            assertSame(shown, presentation())
+            assertFalse(shown.mapVisible)
+            ReflectionHelpers.setField(host, "activeAirPlaySession",
+                mock(com.shilapi.xcertplay.airplay.AirPlaySession::class.java))
+            refresh()
+            assertSame(shown, presentation())
+            assertTrue(shown.mapVisible) // Reconnected video reuses the current navigation state.
             `when`(controller.navigationActiveSnapshot()).thenReturn(false)
             visibilityChanged.invoke(false)
             assertSame(shown, presentation())

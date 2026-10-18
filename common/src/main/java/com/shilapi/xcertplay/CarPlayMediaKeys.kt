@@ -526,6 +526,21 @@ internal object CarPlayMediaKeys {
         Log.i(TAG, "media key $source -> CarPlay $index sent=$sent")
     }
 
+    /** Reuse the existing cross-path duplicate window for a key explicitly consumed as Siri. */
+    internal fun arcfoxMediaKeyConsumedAsSiri(keyCode: Int) {
+        val index = when (keyCode) {
+            KeyEvent.KEYCODE_MEDIA_NEXT -> CarPlayMediaButton.NEXT
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS -> CarPlayMediaButton.PREVIOUS
+            else -> return
+        }
+        synchronized(this) {
+            if (!vehicleMusicExclusive) return
+            lastArcfoxIndex = index
+            lastArcfoxSource = "arcfox-siri"
+            lastArcfoxAt = SystemClock.elapsedRealtime()
+        }
+    }
+
     /** A steering-wheel media key captured outside the Android key stream (Geely/Lynk). */
     internal fun onExternalMediaKey(index: Int) = send(index, "geely-wheel")
     internal fun onArcfoxWheelMediaKey(index: Int): Boolean {

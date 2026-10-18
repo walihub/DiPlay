@@ -2,7 +2,7 @@ package com.shilapi.xcertplay.vehicle.arcfox
 
 import com.shilapi.xcertplay.vehicle.VehiclePromptFocus
 
-/** One prompt owns focus only while PCM is arriving or still queued for playback. */
+/** One prompt owns focus only while non-silent PCM is arriving or still queued for playback. */
 internal class ArcfoxNavigationFocus(
     private val request: () -> Boolean,
     private val abandon: () -> Unit,
@@ -35,7 +35,7 @@ internal class ArcfoxNavigationFocus(
             interrupted = true
             release()
         }
-        if (!pending && lastPcm != Long.MIN_VALUE && nowMillis() - lastPcm >= 700) {
+        if (!pending && lastPcm != Long.MIN_VALUE && nowMillis() - lastPcm >= QUIET_TAIL_MILLIS) {
             release()
             interrupted = false
             lastAttempt = Long.MIN_VALUE
@@ -53,6 +53,11 @@ internal class ArcfoxNavigationFocus(
     override fun close() {
         closed = true
         release()
+    }
+
+    private companion object {
+        // Absorb short speech gaps, without retaining ducking through silent PCM padding.
+        const val QUIET_TAIL_MILLIS = 200L
     }
 
     private fun release() {

@@ -21,12 +21,19 @@ object ArcfoxHardKeys {
 
     /** CarLife's ArcfoxHardKeyReceiver maps these raw N6 codes to next/previous. */
     fun mediaPress(action: String?, inputKey: Int): Int? = if (action == ACTION_DOWN) when (inputKey) {
-        16 -> CarPlayMediaButton.NEXT
-        15 -> CarPlayMediaButton.PREVIOUS
+        16, 87 -> CarPlayMediaButton.NEXT
+        15, 88 -> CarPlayMediaButton.PREVIOUS
         else -> null
     } else null
 
-    fun register(context: Context, sendMedia: (Int) -> Boolean = { false }, requestSiri: () -> Boolean): BroadcastReceiver? {
+    /** OEM input service emits 87/88; reference CarLife also accepts the older 16/15 aliases. */
+    fun mediaKeyCode(action: String?, inputKey: Int): Int? = if (action == ACTION_DOWN) when (inputKey) {
+        16, 87 -> 87
+        15, 88 -> 88
+        else -> null
+    } else null
+
+    fun register(context: Context, sendMedia: (Int) -> Boolean = { false }, interceptMediaKey: (Int) -> Boolean = { false }, requestSiri: () -> Boolean): BroadcastReceiver? {
         if (!Build.FINGERPRINT.startsWith("AAOP_COCKPIT/")) return null
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -34,6 +41,8 @@ object ArcfoxHardKeys {
                 if (isVoiceLongPress(intent.action, inputKey)) {
                     Log.i("DiPlay-ArcfoxKeys", "voice long press: Siri requested=${requestSiri()}")
                 }
+                val keyCode = mediaKeyCode(intent.action, inputKey)
+                if (keyCode != null && interceptMediaKey(keyCode)) return
                 mediaPress(intent.action, inputKey)?.let { press ->
                     Log.i("DiPlay-ArcfoxKeys", "wheel media input=$inputKey sent=${sendMedia(press)}")
                 }

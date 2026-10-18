@@ -39,6 +39,27 @@ class ArcfoxHardKeysTest {
         }
     }
 
+    @Test fun anAssignedMediaKeyIsInterceptedBeforeDiPlayMediaButDoesNotAbortOtherApps() {
+        val old = android.os.Build.FINGERPRINT
+        org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "FINGERPRINT", "AAOP_COCKPIT/test")
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        val normalized = mutableListOf<Int>()
+        var media = 0
+        val receiver = ArcfoxHardKeys.register(app, sendMedia = { media++; true },
+            interceptMediaKey = { normalized.add(it); it == 87 }, requestSiri = { false })!!
+        try {
+            for (raw in listOf(87, 16, 88, 15)) {
+                app.sendBroadcast(android.content.Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", raw))
+            }
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            org.junit.Assert.assertEquals(listOf(87, 87, 88, 88), normalized)
+            org.junit.Assert.assertEquals(2, media)
+        } finally {
+            app.unregisterReceiver(receiver)
+            org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "FINGERPRINT", old)
+        }
+    }
+
     @Test fun onlyTheReferenceVoiceLongPressOpensSiri() {
         assertTrue(ArcfoxHardKeys.isVoiceLongPress("adayo.keyEvent.onKeyLongPress.N6", 231))
         assertTrue(ArcfoxHardKeys.isVoiceLongPress("adayo.keyEvent.onKeyLongPress.N6", 219))
@@ -50,6 +71,6 @@ class ArcfoxHardKeysTest {
         org.junit.Assert.assertEquals(CarPlayMediaButton.NEXT, ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyDown.N6", 16))
         org.junit.Assert.assertEquals(CarPlayMediaButton.PREVIOUS, ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyDown.N6", 15))
         org.junit.Assert.assertNull(ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyUp.N6", 16))
-        org.junit.Assert.assertNull(ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyDown.N6", 87))
+        org.junit.Assert.assertEquals(CarPlayMediaButton.NEXT, ArcfoxHardKeys.mediaPress("adayo.keyEvent.onKeyDown.N6", 87))
     }
 }

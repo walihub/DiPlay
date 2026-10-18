@@ -169,6 +169,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
     private var appearanceUpdatesResumed = false
     private var appearanceRenderPending = false
     private var appearanceButtonFocusPending = false
+    private var arcfoxSiriLearningReceiver: android.content.BroadcastReceiver? = null
     private var windowLearning: WindowKeyLearning? = null
     private val windowLearningPresses = WheelKeyPresses()
     private val endWindowLearning = Runnable { cancelKeyLearning() }
@@ -3952,7 +3953,13 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                     applyPendingAppearanceRender()
                 }
             }
-            val started = WheelKeyService.learn(role, cancelled, refused) { _, key -> runOnUiThread {
+            val arcfoxSiri = role == WheelZoomSettings.Role.SIRI &&
+                com.shilapi.xcertplay.vehicle.VehicleIdentity.isArcfox() &&
+                com.shilapi.xcertplay.vehicle.VehicleProfiles.isArcfox(this)
+            val started = (arcfoxSiri && learnInWindow(role, cancelled, refused) {
+                assign.text = current(it)
+                applyPendingAppearanceRender()
+            }) || WheelKeyService.learn(role, cancelled, refused) { _, key -> runOnUiThread {
                 assign.text = current(key)
                 applyPendingAppearanceRender()
             } } ||
@@ -3989,11 +3996,26 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         refused: (WheelZoomSettings.Role) -> Unit, done: (WheelKey) -> Unit): Boolean {
         cancelKeyLearning()
         windowLearning = WindowKeyLearning(role, cancelled, refused, done)
+        arcfoxSiriLearningReceiver = if (role == WheelZoomSettings.Role.SIRI)
+            com.shilapi.xcertplay.vehicle.VehicleAdapters.registerVoiceKey(this,
+            interceptMediaKey = { code ->
+                if (windowLearning == null) false else {
+                    dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, code))
+                    dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+                    true
+                }
+            }, requestSiri = { false }) else null
         handler.postDelayed(endWindowLearning, WheelKeyService.LEARNING_TIMEOUT_MILLIS)
         return true
     }
 
+    private fun releaseArcfoxSiriLearningReceiver() {
+        arcfoxSiriLearningReceiver?.let { runCatching { unregisterReceiver(it) } }
+        arcfoxSiriLearningReceiver = null
+    }
+
     private fun cancelKeyLearning() {
+        releaseArcfoxSiriLearningReceiver()
         WheelKeyService.cancelLearning()
         handler.removeCallbacks(endWindowLearning)
         val cancelled = windowLearning?.cancelled
@@ -4016,6 +4038,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             }
             handler.removeCallbacks(endWindowLearning)
             windowLearning = null
+            releaseArcfoxSiriLearningReceiver()
             val key = WheelKey.of(event)
             val taken = WheelZoomSettings.conflict(this, learning.role, key)
             if (taken != null) {

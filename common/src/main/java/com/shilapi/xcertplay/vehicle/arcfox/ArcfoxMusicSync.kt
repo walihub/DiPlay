@@ -26,7 +26,7 @@ internal object ArcfoxMusicSync {
     private var context: Context? = null
     private val publisher = ArcfoxMusicPublisher(SystemClock::elapsedRealtime) { packet ->
         context?.let {
-            if (ArcfoxDirectMusicTransport.trySend(it, packet)) ArcfoxMusicDispatch.DISPATCHED
+            if (ArcfoxLinkMusicTransport.trySend(it, packet)) ArcfoxMusicDispatch.DISPATCHED
             else ArcfoxMusicDispatch.UNAVAILABLE
         } ?: ArcfoxMusicDispatch.UNAVAILABLE
     }

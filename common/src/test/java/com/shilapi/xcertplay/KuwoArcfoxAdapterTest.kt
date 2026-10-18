@@ -64,6 +64,8 @@ class KuwoArcfoxAdapterTest {
         assertEquals(0, MediaPolicy.seconds(-1))
     }
     @Test fun onlyProvenRawWheelCodesAndCrossPathDuplicatesAreHandled() {
+        assertEquals("MEDIA_NEXT", KeyPolicy.raw("adayo.keyEvent.onKeyDown.N6", 87))
+        assertEquals("MEDIA_PRE", KeyPolicy.raw("adayo.keyEvent.onKeyDown.N6", 88))
         assertEquals("MEDIA_NEXT", KeyPolicy.raw("adayo.keyEvent.onKeyDown.N6", 16))
         assertEquals("MEDIA_PRE", KeyPolicy.raw("adayo.keyEvent.onKeyDown.N6", 15))
         assertNull(KeyPolicy.raw("adayo.keyEvent.onKeyUp.N6", 16))

@@ -1856,6 +1856,7 @@ private class AudioRenderer(
     private val maxArrivalGapMs = AtomicLong()
     private val frameBytes = if (format.channels >= 2) 4 else 2
     private var totalWrittenFrames = 0L
+    private val navigationFocusTail = NavigationPcmFocusTail(frameBytes)
     private val ambientMedia = AmbientMusicActivityPolicy.acceptsAudio(format.audioType, format.payloadType)
     private val ambientEnvelope = AmbientMusicEnvelope()
     private val ambientBass = AmbientMusicBassAnalyzer(format.sampleRate, pcmChannels)
@@ -2399,7 +2400,11 @@ private class AudioRenderer(
 
     private fun writePcm(data: ByteArray, offset: Int = 0, length: Int = data.size) {
         val track = track ?: return
-        if (length > 0) vehicleNavigationFocus?.pcm(NavigationPlayback.snapshot().priorityVoiceActive)
+        // Only the Arcfox navigation-focus exception observes samples. Silent AirPlay padding
+        // must still be played, but must not prolong the vehicle's media ducking indefinitely.
+        if (vehicleNavigationFocus != null && navigationFocusTail.hasSignal(data, offset, length)) {
+            vehicleNavigationFocus?.pcm(NavigationPlayback.snapshot().priorityVoiceActive)
+        }
         diagnosticStage = "track-write"
         if (!firstPcmLogged && length > 0) {
             firstPcmLogged = true
@@ -2439,6 +2444,9 @@ private class AudioRenderer(
                 ambientEnvelope.append(totalWrittenFrames, framesWritten.toLong(),
                     AmbientMusicEnvelope.pcmRms(data, offset + written, count),
                     ambientBass.rms(data, offset + written, count))
+            }
+            if (vehicleNavigationFocus != null) {
+                navigationFocusTail.written(data, offset + written, count, totalWrittenFrames)
             }
             written += count
             totalWrittenFrames += framesWritten
@@ -2487,7 +2495,10 @@ private class AudioRenderer(
     private fun maintainPlaybackBuffer() {
         val track = track ?: return
         vehicleNavigationFocus?.maintain(
-            pending = queue.isNotEmpty() || bufferProgress.queuedBytes(track.playbackHeadPosition) > 0,
+            // Incoming packets can stay queued normally while WRITE_BLOCKING paces silent PCM.
+            // They cannot play before writePcm reacquires focus. Protect only written signal frames.
+            pending = navigationFocusTail.pending(totalWrittenFrames -
+                bufferProgress.queuedBytes(track.playbackHeadPosition) / frameBytes),
             priorityVoice = NavigationPlayback.snapshot().priorityVoiceActive,
         )
         if (bufferProgress.shouldRebuffer(mappedChannel == AudioChannel.MEDIA, playbackStarted,

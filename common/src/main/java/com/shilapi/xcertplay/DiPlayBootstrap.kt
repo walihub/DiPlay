@@ -12,6 +12,7 @@ internal object DiPlayBootstrap {
     @Volatile private var ready = false
 
     @Synchronized fun ensure(context: Context, mfiTarget: MfiTarget) {
+        if (com.shilapi.xcertplay.mfi.ArcfoxNativeMfiDeployment.enabled(context)) return
         if (mfiTarget != MfiTarget.LOCAL) return
         if (ready) return
         val target = File(context.noBackupFilesDir, LocalMfiAuthenticationClient.DIRECTORY)

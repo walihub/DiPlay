@@ -6,6 +6,7 @@ import com.shilapi.xcertplay.hud.*
 internal class ArcfoxHudSessionGate {
     private var owner: Any? = null
     private var revision = 0L
+    private var navigationRevision = 0L
     private var ended = true
     private var alive: () -> Boolean = { false }
     private val retiredOwners = java.util.WeakHashMap<Any, Boolean>()
@@ -13,7 +14,10 @@ internal class ArcfoxHudSessionGate {
     @Synchronized fun begin(nextOwner: Any, sessionAlive: () -> Boolean): Long? {
         if (retiredOwners.containsKey(nextOwner)) return null
         if (owner !== nextOwner || ended) {
-            if (owner !== nextOwner) owner?.let { retiredOwners[it] = true }
+            if (owner !== nextOwner) {
+                owner?.let { retiredOwners[it] = true }
+                navigationRevision++
+            }
             revision++
             owner = nextOwner
             ended = false
@@ -24,6 +28,18 @@ internal class ArcfoxHudSessionGate {
 
     @Synchronized fun capture(expectedOwner: Any): Long? =
         revision.takeIf { owner === expectedOwner && !ended }
+
+    /** A disconnected video session may still receive current iAP2 route/stop updates. */
+    @Synchronized fun captureNavigation(expectedOwner: Any): Long? =
+        navigationRevision.takeIf { owner === expectedOwner }
+
+    @Synchronized fun isNavigationCurrent(token: Long): Boolean =
+        owner != null && token == navigationRevision
+
+    @Synchronized fun resetNavigation(expectedOwner: Any): Long? {
+        if (owner !== expectedOwner) return null
+        return ++navigationRevision
+    }
 
     @Synchronized fun current(): Long? = revision.takeIf { owner != null }
 

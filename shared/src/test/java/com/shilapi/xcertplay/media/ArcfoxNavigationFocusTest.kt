@@ -21,6 +21,27 @@ class ArcfoxNavigationFocusTest {
         assertFalse(usesArcfoxNavigationFocus("AAOP_COCKPIT/test", true, 0))
     }
 
+    @Test fun releaseIsAfter200MillisOfQuietAndNeverBeforeTheAudibleTailPlays() {
+        val focus = focus()
+        focus.pcm(false)
+        now = 199; focus.maintain(false, false)
+        assertEquals(0, releases)
+        now = 200; focus.maintain(true, false)
+        assertEquals(0, releases)
+        now = 210; focus.maintain(false, false)
+        assertEquals(1, releases)
+    }
+
+    @Test fun continuingSpeechExtendsTheQuietBoundary() {
+        val focus = focus()
+        focus.pcm(false)
+        now = 190; focus.pcm(false)
+        now = 389; focus.maintain(false, false)
+        assertEquals(0, releases)
+        now = 390; focus.maintain(false, false)
+        assertEquals(1, releases)
+    }
+
     @Test fun bufferedTailRetainsFocusAndNextPromptAcquiresAgain() {
         val focus = focus()
         focus.pcm(false); now = 100; focus.pcm(false)

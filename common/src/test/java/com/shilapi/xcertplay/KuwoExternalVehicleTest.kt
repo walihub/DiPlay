@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay
 
 import android.content.Intent
+import android.media.AudioAttributes
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSession
@@ -52,10 +53,50 @@ class KuwoExternalVehicleTest {
     @Test fun originalSessionPublishesAndWheelUsesOnlyStandardTransport() {
         KuwoExternalVehicle.update(app, listOf(controller))
         assertEquals(listOf("Song"), sent)
-        app.sendBroadcast(Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", 16))
+        app.sendBroadcast(Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", 87))
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(PlaybackState.ACTION_SKIP_TO_NEXT, shadowOf(controller.transportControls).lastPerformedAction)
         assertTrue(shadowOf(app).broadcastIntents.none { it.action == "cn.kuwo.kwmusicauto.action.MEDIA_BUTTON" })
+    }
+    @Test fun savedKuwoSelectionControlsAlreadyPlayingSessionBehindOlderRival() {
+        val rivalSession = MediaSession(app, "older-native")
+        try {
+            val rival = MediaController(app, rivalSession.sessionToken)
+            shadowOf(rival).setPackageName("com.arcfox.media")
+            shadowOf(rival).setPlaybackState(PlaybackState.Builder().setState(3, 0, 1f).build())
+            KuwoExternalVehicle.update(app, listOf(rival, controller))
+            assertEquals(listOf("Song"), sent)
+            app.sendBroadcast(Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", 16))
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(PlaybackState.ACTION_SKIP_TO_NEXT, shadowOf(controller.transportControls).lastPerformedAction)
+        } finally { rivalSession.release() }
+    }
+    @Test fun selectedKuwoUsesOriginalSessionEvenWithNonstandardPlaybackUsage() {
+        val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).build()
+        val info = ReflectionHelpers.callConstructor(MediaController.PlaybackInfo::class.java,
+            ReflectionHelpers.ClassParameter.from(Int::class.javaPrimitiveType, 1),
+            ReflectionHelpers.ClassParameter.from(Int::class.javaPrimitiveType, 2),
+            ReflectionHelpers.ClassParameter.from(Int::class.javaPrimitiveType, 15),
+            ReflectionHelpers.ClassParameter.from(Int::class.javaPrimitiveType, 5),
+            ReflectionHelpers.ClassParameter.from(AudioAttributes::class.java, attributes),
+            ReflectionHelpers.ClassParameter.from(String::class.java, null))
+        shadowOf(controller).setPlaybackInfo(info)
+        KuwoExternalVehicle.update(app, listOf(controller))
+        app.sendBroadcast(Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", 88))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(PlaybackState.ACTION_SKIP_TO_PREVIOUS, shadowOf(controller.transportControls).lastPerformedAction)
+    }
+    @Test fun carPlayPlayingBlocksSavedKuwoSelection() {
+        val phoneSession = MediaSession(app, "phone")
+        try {
+            val phone = MediaController(app, phoneSession.sessionToken)
+            shadowOf(phone).setPackageName("com.shihab.diplay")
+            shadowOf(phone).setPlaybackState(PlaybackState.Builder().setState(3, 0, 1f).build())
+            KuwoExternalVehicle.update(app, listOf(phone, controller))
+            app.sendBroadcast(Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", 16))
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(0L, shadowOf(controller.transportControls).lastPerformedAction)
+        } finally { phoneSession.release() }
     }
     @Test fun nativeControllerSelectionBlocksStaleKuwoMetadataAndWheelEvenWithoutNativeSession() {
         com.dudu.autoui.manage.music.s.selected = 101
@@ -68,7 +109,7 @@ class KuwoExternalVehicleTest {
     @Test fun removedSessionUnregistersKeysAndNeverPausesOriginalPlayer() {
         KuwoExternalVehicle.update(app, listOf(controller))
         KuwoExternalVehicle.update(app, emptyList())
-        app.sendBroadcast(Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", 15))
+        app.sendBroadcast(Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", 88))
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(0L, shadowOf(controller.transportControls).lastPerformedAction)
         assertNull(ReflectionHelpers.getStaticField<Any?>(KuwoExternalVehicle::class.java, "current"))

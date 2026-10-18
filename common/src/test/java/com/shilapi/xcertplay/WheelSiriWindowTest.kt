@@ -97,6 +97,38 @@ class WheelSiriWindowTest {
         verify(controller, times(3)).requestSiri()
     }
 
+    private fun arcfoxMedia(code: Int): Boolean = host.javaClass
+        .getDeclaredMethod("dispatchArcfoxAssignedMediaKey", Int::class.javaPrimitiveType)
+        .apply { isAccessible = true }.invoke(host, code) as Boolean
+
+    @Test fun assignedArcfoxMediaKeyUsesOriginalSiriRoute() {
+        val code = KeyEvent.KEYCODE_MEDIA_NEXT
+        WheelZoomSettings.assign(host, WheelZoomSettings.Role.SIRI, WheelKey.of(KeyEvent(KeyEvent.ACTION_DOWN, code)))
+        assertTrue(arcfoxMedia(code))
+        verify(controller, times(1)).requestSiri()
+        verify(controller, never()).sendMediaButton(anyInt())
+    }
+
+    @Test fun unassignedOrDisabledArcfoxMediaKeyKeepsTheMediaRoute() {
+        assertFalse(arcfoxMedia(KeyEvent.KEYCODE_MEDIA_NEXT))
+        WheelZoomSettings.assign(host, WheelZoomSettings.Role.SIRI,
+            WheelKey.of(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT)))
+        WheelZoomSettings.setSiriKey(host, false)
+        assertFalse(arcfoxMedia(KeyEvent.KEYCODE_MEDIA_NEXT))
+        verify(controller, never()).requestSiri()
+    }
+
+    @Test fun arcfoxMediaAssignmentUsesOriginalCallAndSessionRules() {
+        val code = KeyEvent.KEYCODE_MEDIA_PREVIOUS
+        WheelZoomSettings.assign(host, WheelZoomSettings.Role.SIRI, WheelKey.of(KeyEvent(KeyEvent.ACTION_DOWN, code)))
+        host.getSystemService(AudioManager::class.java).mode = AudioManager.MODE_IN_CALL
+        assertFalse(arcfoxMedia(code))
+        host.getSystemService(AudioManager::class.java).mode = AudioManager.MODE_NORMAL
+        field("activeAirPlaySession", null)
+        assertFalse(arcfoxMedia(code))
+        verify(controller, never()).requestSiri()
+    }
+
     @Test fun assigningALegacyVoiceKeyBetweenDownAndUpKeepsTheOriginalAction() {
         val code = KeyEvent.KEYCODE_VOICE_ASSIST
         WheelZoomSettings.setSiriKey(host, false)
@@ -127,6 +159,37 @@ class WheelSiriWindowTest {
         assertTrue(settings.dispatchKeyEvent(key(KeyEvent.KEYCODE_F7, false)))
         assertEquals(1, learned)
         assertEquals(KeyEvent.KEYCODE_F7, WheelZoomSettings.key(settings, WheelZoomSettings.Role.SIRI)?.code)
+    }
+
+    @Test fun otherRoleLearningDoesNotSubscribeToArcfoxSiriMediaBroadcasts() {
+        val old = android.os.Build.FINGERPRINT
+        org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "FINGERPRINT", "AAOP_COCKPIT/test")
+        try {
+            learn(WheelZoomSettings.Role.MODE) { fail("media broadcast must not learn a zoom role") }
+            val receiver = settings.javaClass.getDeclaredField("arcfoxSiriLearningReceiver").apply { isAccessible = true }
+            assertNull(receiver.get(settings))
+        } finally {
+            settings.javaClass.getDeclaredMethod("cancelKeyLearning").apply { isAccessible = true }.invoke(settings)
+            org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "FINGERPRINT", old)
+        }
+    }
+
+    @Test fun arcfoxN6KeyCanBeLearnedByTheExistingSiriAssignmentWindow() {
+        val old = android.os.Build.FINGERPRINT
+        org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "FINGERPRINT", "AAOP_COCKPIT/test")
+        try {
+            var learned: WheelKey? = null
+            learn { learned = it }
+            settings.sendBroadcast(android.content.Intent("adayo.keyEvent.onKeyDown.N6").putExtra("InputKey", 87))
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertEquals(WheelKey.of(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT)), learned)
+            assertEquals(learned, WheelZoomSettings.key(settings, WheelZoomSettings.Role.SIRI))
+            val receiver = settings.javaClass.getDeclaredField("arcfoxSiriLearningReceiver").apply { isAccessible = true }
+            assertNull(receiver.get(settings))
+        } finally {
+            settings.javaClass.getDeclaredMethod("cancelKeyLearning").apply { isAccessible = true }.invoke(settings)
+            org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "FINGERPRINT", old)
+        }
     }
 
     @Test fun callCancelsWindowLearningWithoutSavingTheCallKey() {
@@ -243,11 +306,11 @@ class WheelSiriWindowTest {
         if (view is ViewGroup) for (index in 0 until view.childCount) yieldAll(views(view.getChildAt(index)))
     }
 
-    private fun learn(done: (WheelKey) -> Unit) {
+    private fun learn(role: WheelZoomSettings.Role = WheelZoomSettings.Role.SIRI, done: (WheelKey) -> Unit) {
         settings.javaClass.getDeclaredMethod("learnInWindow", WheelZoomSettings.Role::class.java,
             kotlin.jvm.functions.Function0::class.java, kotlin.jvm.functions.Function1::class.java,
             kotlin.jvm.functions.Function1::class.java).apply { isAccessible = true }
-            .invoke(settings, WheelZoomSettings.Role.SIRI, {}, { _: WheelZoomSettings.Role -> }, done)
+            .invoke(settings, role, {}, { _: WheelZoomSettings.Role -> }, done)
     }
 
     private fun field(name: String, value: Any?) = host.javaClass.getDeclaredField(name)

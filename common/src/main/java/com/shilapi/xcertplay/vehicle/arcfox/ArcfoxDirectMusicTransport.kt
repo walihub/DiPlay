@@ -50,6 +50,7 @@ internal class ArcfoxDirectMusicSender(
 ) {
     private var coverName = ""
     private var artworkKey: List<Any?>? = null
+    private var lastCoverFailureAt: Long? = null
 
     fun send(packet: ArcfoxMusicPacket, muted: Boolean): Boolean = try {
         val nextArtworkKey = listOf(packet.song.artist, packet.song.album, packet.song.artworkId)
@@ -65,7 +66,14 @@ internal class ArcfoxDirectMusicSender(
             // recovers without retransferring artwork on every progress update.
             // Artwork failure must not freeze text/progress on a fixed native route.
             // Keep retrying from the packet's retained bytes on subsequent updates.
-            val written = try { writeCover(bytes) } catch (_: Exception) { null }
+            val written = try { writeCover(bytes) } catch (error: Exception) {
+                val time = android.os.SystemClock.elapsedRealtime()
+                if (lastCoverFailureAt?.let { time - it >= 5_000L } != false) {
+                    lastCoverFailureAt = time
+                    Log.w("DiPlay-ArcfoxMusic", "Cover cache failed uid=${android.os.Process.myUid()} directory=/mnt/ota/media", error)
+                }
+                null
+            }
             if (written == null) {
                 coverName = ""
             } else {
@@ -118,7 +126,7 @@ internal class ArcfoxMusicCoverStore(private val directory: File) {
         val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString("") { "%02x".format(it) }
         val name = "$PREFIX$digest.png"
-        check(directory.isDirectory || directory.mkdirs())
+        check(directory.isDirectory || directory.mkdirs()) { "Cover directory unavailable: $directory" }
         val target = File(directory, name)
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
@@ -141,8 +149,8 @@ internal class ArcfoxMusicCoverStore(private val directory: File) {
                 check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
                 output.fd.sync()
             }
-            check(temporary.setReadable(true, false))
-            check(temporary.renameTo(target))
+            check(temporary.setReadable(true, false)) { "Cover setReadable failed: $temporary" }
+            check(temporary.renameTo(target)) { "Cover rename failed: $temporary -> $target" }
             check(target.isFile && target.canRead())
             remember(target)
             // Defer deletion so the instrument has time to consume a previous filename.
